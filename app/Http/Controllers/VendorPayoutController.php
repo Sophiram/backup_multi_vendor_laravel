@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\PayoutRequest; // ប្រើមួយនេះ
+use App\Models\VendorPayout; // ផ្លាស់ប្តូរមកប្រើ VendorPayout ឱ្យស្របគ្នាទាំងអស់
 use App\Models\OrderItem;
 use Illuminate\Support\Facades\Auth;
 
@@ -14,73 +14,76 @@ class VendorPayoutController extends Controller
      */
     public function index()
     {
-        $vendorId = Auth::id();
-
-        // ១. គណនាចំណូលសុទ្ធសរុបពីការលក់ (Net Earnings) ដែលទទួលបានជោគជ័យ
-        $totalEarnings = OrderItem::where('vendor_id', $vendorId)
-            ->whereHas('order', function($query) {
-                $query->where('status', 'completed'); // គិតតែ Order ដែលជោគជ័យ
-            })
-            ->sum('vendor_net_amount');
-
-        // ២. គណនាទឹកប្រាក់ដែលបានដកជោគជ័យរួចរាល់
-        $totalPaid = \App\Models\VendorPayout::where('vendor_id', $vendorId)
-            ->where('status', 'Approved')
-            ->sum('amount');
-
-        // ៣. គណនាទឹកប្រាក់ដែលកំពុងស្ថិតក្នុងលក្ខខណ្ឌរង់ចាំ (Pending)
-        $totalPending = \App\Models\VendorPayout::where('vendor_id', $vendorId)
-            ->where('status', 'Pending')
-            ->sum('amount');
-
-        // ៤. ទឹកប្រាក់នៅសល់ក្នុងកាបូបដែលអាចដកបាន (Available Balance)
-        $availableBalance = $totalEarnings - $totalPaid - $totalPending;
-
-        // ៥. ទាញយកប្រវត្តិនៃការដកប្រាក់របស់ Vendor នេះ
-        $payouts = PayoutRequest::where('user_id', $vendorId)
-        ->latest()->paginate(10);
-        return view('vendor.payout', compact('availableBalance', 'totalEarnings', 'totalPending', 'payouts'));
-    }
-
-    /**
-     * ដំណើរការដាក់ពាក្យស្នើសុំដកប្រាក់
-     */
-    public function requestPayout(Request $request)
-    {
-        $request->validate([
-            'amount' => 'required|numeric|min:5',
-        ], [
-            'amount.min' => 'The amount must be at least $5.00',
-        ]);
-
-        $vendorId = Auth::id();
         $user = Auth::user();
 
-        // ទាញយកព័ត៌មានគណនីធនាគារពី Profile (តារាង vendor ឬ user)
-        $bankInfo = $user->vendor->bank_account_info ?? '';
-
-        if (empty($bankInfo)) {
-            return redirect()->back()->with('error', 'Please configure your bank details in profile settings first.');
+        if (!$user->vendor) {
+            abort(403, 'You do not have a vendor account.');
         }
 
-        // ពិនិត្យមើលទឹកប្រាក់ក្នុងកាបូប (Logic ដូចខាងលើ)
-        $totalEarnings = OrderItem::where('vendor_id', $vendorId)->whereHas('order', function($q){$q->where('status','completed');})->sum('vendor_net_amount');
-        $totalPaid = \App\Models\VendorPayout::where('vendor_id', $vendorId)->where('status', 'Approved')->sum('amount');
-        $totalPending = \App\Models\VendorPayout::where('vendor_id', $vendorId)->where('status', 'Pending')->sum('amount');
-        $availableBalance = $totalEarnings - $totalPaid - $totalPending;
+        $vendor = $user->vendor; // ទាញយក Vendor object
+        // dd($vendor->id);
+        // $query = $vendor->orderItems()->whereHas('order', function($q) {
+        //     $q->whereIn('status', ['completed', 'shipped']);
+        // });
 
-        if ($request->amount > $availableBalance) {
-            return redirect()->back()->with('error', 'Insufficient balance for this withdrawal request.');
-        }
+        // // មើល SQL Query ដែលវា generate
+        // dd($query->toSql(), $query->getBindings(), $query->sum('vendor_net_amount'));
 
-        // បង្កើតកំណត់ត្រាស្នើសុំដកប្រាក់
-        \App\Models\VendorPayout::create([
-            'vendor_id' => $vendorId,
-            'amount' => $request->amount,
-            'bank_details_snapshot' => $bankInfo, // រក្សាទុកកុំឱ្យមានបញ្ហានៅពេល Vendor ដូរលេខកាតក្រោយ
-            'status' => 'Pending',
-        ]);
+        // ប្រើ Method ដែលបងបានសរសេរក្នុង Model មកប្រើបានភ្លាមៗ!
+        $totalEarnings    = $vendor->total_earnings;
+        $totalPending     = $vendor->pending_payouts;
+        $availableBalance = $vendor->available_balance;
 
-        return redirect()->back()->with('success', 'Your payout request has been submitted successfully.');
+        // ទាញយកប្រវត្តិការដកប្រាក់
+        $payouts = $vendor->payouts()->latest()->paginate(10);
+
+        return view('vendor.payout', compact('availableBalance', 'totalEarnings', 'totalPending', 'payouts', 'user'));
     }
+
+
+        public function requestPayout(Request $request)
+        {
+            // ១. ទាញយកទិន្នន័យ Vendor និងពិនិត្យគណនី
+            $user = Auth::user();
+            $vendor = $user->vendor;
+
+            if (!$vendor) {
+                return redirect()->back()->with('error', 'Vendor profile not found.');
+            }
+
+            // ២. ការផ្ទៀងផ្ទាត់ទិន្នន័យ (Validation) - បានជួសជុល Syntax
+            $request->validate([
+                'amount' => [
+                    'required',
+                    'numeric',
+                    'min:1',
+                    'max:' . $vendor->available_balance // ដាក់ចូលក្នុង Array របៀបនេះដើម្បីកុំឱ្យខុស Syntax
+                ],
+            ], [
+                'amount.required' => 'Please enter the withdrawal amount.',
+                'amount.numeric'  => 'The amount must be a valid number.',
+                'amount.min'      => 'The amount must be at least $1.00.',
+                'amount.max'      => 'Insufficient balance. You can only withdraw up to $' . number_format($vendor->available_balance, 2),
+            ]);
+
+            // ៣. ពិនិត្យព័ត៌មានធនាគារ (Bank Info)
+            if (empty($vendor->bank_account_info)) {
+                return redirect()->back()->with('error', 'Please configure your bank details in profile settings first.');
+            }
+
+            // ៤. ពិនិត្យសមតុល្យទឹកប្រាក់ម្តងទៀតដើម្បីធានាសុវត្ថិភាព (Double Check)
+            if ($request->amount > $vendor->available_balance) {
+                return redirect()->back()->with('error', 'Insufficient available balance.');
+            }
+
+            // ៥. បង្កើតកំណត់ត្រាស្នើសុំដកប្រាក់
+            VendorPayout::create([
+                'vendor_id'             => $vendor->id,
+                'amount'                => $request->amount,
+                'bank_details_snapshot' => $vendor->bank_account_info,
+                'status'                => 'Pending', // រង់ចាំការពិនិត្យពី Admin
+            ]);
+
+            return redirect()->back()->with('success', 'Your payout request has been submitted successfully.');
+        }
 }

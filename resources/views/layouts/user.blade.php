@@ -110,8 +110,11 @@
 
         .nav-menu-container {
             display: flex;
+            flex-direction: row;
             align-items: center;
             gap: 10px;
+            justify-content: center;
+
         }
 
         .menu-item-link {
@@ -169,6 +172,56 @@
             margin-top: 8px !important;
             background: #ffffff;
             z-index: 1060;
+            overflow: visible !important;
+        }
+
+        .custom-has-submenu {
+            position: relative;
+        }
+
+        .custom-subcategory-menu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            /* រុញទៅខាងស្តាំដៃនៃ Category */
+            top: 0;
+            min-width: 220px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #eef2f5;
+            padding: 8px 0;
+            z-index: 1050;
+            margin-left: 2px;
+            /* គម្លាតបន្តិចពីផ្ទាំងដើម */
+        }
+
+
+        .custom-has-submenu:hover .custom-subcategory-menu {
+            display: block;
+        }
+
+
+        .custom-subcategory-menu .sub-item {
+            display: block;
+            padding: 8px 16px;
+            color: #4b5563;
+            text-decoration: none;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .custom-subcategory-menu .sub-item:hover {
+            background-color: #f3f4f6;
+            color: #4f46e5;
+            /* ពណ៌ស្វាយ/ខៀវ តាមប្រធានបទ QuickCart របស់អ្នក */
+            padding-left: 20px;
+            /* ចលនារំកិលបន្តិច */
+        }
+
+        .animate__animated.animate__fadeInFast {
+            --animate-duration: 0.2s;
         }
 
         .dropdown-header-title {
@@ -480,13 +533,24 @@
             .brand-logo {
                 font-size: 1.3rem;
             }
-
+/*
             .menu-item-link {
                 padding: 12px 16px;
                 width: 100%;
+            } */
+
+            .menu-item-link {
+                width: 100% !important;
+                display: flex !important;
+                justify-content: flex-start !important;
+                background: rgba(255, 255, 255, 0.05) !important;
+                border-radius: 8px !important;
+                margin-bottom: 2px;
             }
 
             .nav-menu-container {
+                flex-direction: column !important;
+                align-items: stretch !important;
                 gap: 8px;
             }
 
@@ -518,6 +582,38 @@
             .category-icon-wrapper {
                 background-color: rgba(255, 255, 255, 0.15);
                 color: #fff;
+            }
+
+            .custom-subcategory-menu {
+                position: static !important;
+                /* លែងឱ្យវាលោតទៅចំហៀងទៀតហើយ */
+                min-width: 100% !important;
+                box-shadow: none !important;
+                /* ដកស្រមោលចេញកុំឱ្យជាន់គ្នា */
+                border: none !important;
+                background: rgba(0, 0, 0, 0.03) !important;
+                /* ដាក់ពណ៌ប្រផេះស្រាលពីក្រោយ */
+                padding: 6px 0 6px 24px !important;
+                /* រុញទៅស្តាំបន្តិចដើម្បីឱ្យដឹងថាជា Sub-menu */
+                margin-left: 0 !important;
+                border-radius: 8px !important;
+            }
+
+            /* កែសម្រួលឱ្យអក្សរ Sub-item មើលឃើញច្បាស់ល្អ */
+            .custom-subcategory-menu .sub-item {
+                color: rgba(255, 255, 255, 0.85) !important;
+                /* ពណ៌សស្រដៀង Menu ធំ */
+                padding: 8px 12px !important;
+            }
+
+            .custom-subcategory-menu .sub-item:hover {
+                background-color: rgba(255, 255, 255, 0.15) !important;
+                color: #ffffff !important;
+            }
+
+            /* លាក់ព្រួញចំហៀងចេញនៅលើ Mobile ព្រោះវាលែងលោតទៅចំហៀងទៀតហើយ */
+            .premium-dropdown-item .arrow-icon {
+                display: none !important;
             }
 
             .navigation-bar {
@@ -720,8 +816,7 @@
             <div class="w-100 px-3">
                 <div class="collapse navbar-collapse" id="mainNavbarCollapse">
                     <div
-                        class="nav-menu-container flex-column flex-lg-row w-100 justify-content-lg-center align-items-stretch py-2 py-lg-0">
-
+                        class="nav-menu-container flex-column flex-lg-row w-100 justify-content-lg-center align-items-center gap-2 py-2 py-lg-0">
                         {{-- 1. Trending Link --}}
                         <a href="/"
                             class="menu-item-link d-inline-flex align-items-center {{ request()->is('/') || request()->is('trending*') ? 'active' : '' }}">
@@ -735,9 +830,25 @@
 
                         {{-- 2. Categories Dropdown --}}
                         <div class="dropdown custom-nav-dropdown">
-                            <a href="#"
+                            {{-- <a href="#"
                                 class="menu-item-link dropdown-toggle d-inline-flex align-items-center justify-content-between gap-2 w-100 {{ request()->is('category*') ? 'active' : '' }}"
                                 role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="d-inline-flex align-items-center">
+                                    <span
+                                        class="d-inline-flex align-items-center justify-content-center me-2 rounded-2"
+                                        style="width: 26px; height: 26px; background: rgba(255, 255, 255, 0.12);">
+                                        <i data-feather="grid" style="width: 14px; height: 14px;"></i>
+                                    </span>
+                                    <span>Categories</span>
+                                </div>
+                                <i data-feather="chevron-down" class="drop-icon"
+                                    style="width: 14px; height: 14px;"></i>
+                            </a> --}}
+                            <!-- កែសម្រួលត្រង់នេះ -->
+                            <a href="#"
+                                class="menu-item-link dropdown-toggle d-inline-flex align-items-center justify-content-between gap-2 {{ request()->is('category*') ? 'active' : '' }}"
+                                role="button" data-bs-toggle="dropdown" aria-expanded="false">
+
                                 <div class="d-inline-flex align-items-center">
                                     <span
                                         class="d-inline-flex align-items-center justify-content-center me-2 rounded-2"
@@ -754,19 +865,74 @@
                                 <div class="dropdown-header-title">Browse Categories</div>
 
                                 @foreach ($navbarCategories as $category)
-                                    <a href="{{ route('productby.category', $category->category_name) }}"
-                                        class="dropdown-item premium-dropdown-item {{ request()->segment(2) == $category->category_name ? 'active-subcategory' : '' }}">
-                                        <div class="d-flex align-items-center justify-content-between w-100">
-                                            <div class="d-flex align-items-center gap-3">
-                                                <div class="category-icon-wrapper">
-                                                    <i data-feather="layers" style="width: 15px; height: 15px;"></i>
+                                    <div class="custom-has-submenu">
+                                        {{-- Category មេ --}}
+                                        <a href="{{ route('productby.category', $category->category_name) }}"
+                                            class="dropdown-item premium-dropdown-item {{ request()->segment(2) == $category->category_name ? 'active-subcategory' : '' }}">
+
+                                            <div class="d-flex align-items-center justify-content-between w-100">
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <div class="category-icon-wrapper d-flex align-items-center justify-content-center"
+                                                        style="width: 24px; height: 24px; overflow: hidden; border-radius: 4px;">
+
+                                                        {{-- ✨ កែសម្រួល៖ ប្រើលក្ខខណ្ឌដូចទៅនឹង Component ធំ ($category->image) --}}
+                                                        @if ($category->image && file_exists(public_path($category->image)))
+                                                            <img src="{{ asset($category->image) }}"
+                                                                alt="{{ $category->category_name }}"
+                                                                class="w-100 h-100 object-fit-cover">
+                                                        @else
+                                                            {{-- រូបភាពលំនាំដើមបើគ្មានរូបក្នុង DB --}}
+                                                            <img src="{{ asset('images/default-category.png') }}"
+                                                                alt="{{ $category->category_name }}"
+                                                                class="w-100 h-100 object-fit-cover">
+                                                        @endif
+                                                    </div>
+                                                    <span class="category-name">{{ $category->category_name }}</span>
                                                 </div>
-                                                <span class="category-name">{{ $category->category_name }}</span>
+
+                                                @if ($category->subcategories && $category->subcategories->count() > 0)
+                                                    <i data-feather="chevron-right" class="arrow-icon"
+                                                        style="width: 14px; height: 14px;"></i>
+                                                @endif
                                             </div>
-                                            <i data-feather="chevron-right" class="arrow-icon"
-                                                style="width: 14px; height: 14px;"></i>
-                                        </div>
-                                    </a>
+                                        </a>
+
+                                        {{-- 🗂️ Subcategories Menu --}}
+                                        @if ($category->subcategories && $category->subcategories->count() > 0)
+                                            <div class="custom-subcategory-menu animate__animated animate__fadeInFast">
+                                                <div class="dropdown-header-title text-muted px-3 pt-2 pb-1"
+                                                    style="font-size: 11px; text-transform: uppercase; font-weight: 700;">
+                                                    Subcategories
+                                                </div>
+                                                @foreach ($category->subcategories as $sub)
+                                                    <a href="{{ route('productby.category', $sub->subcategory_name) }}"
+                                                        class="sub-item d-flex align-items-center gap-2 py-2 px-3">
+
+                                                        {{-- 🖼️ ប្រអប់បង្ហាញរូបភាពរបស់ Subcategory --}}
+                                                        <div class="subcategory-img-wrapper d-flex align-items-center justify-content-center"
+                                                            style="width: 20px; height: 20px; overflow: hidden; border-radius: 4px; flex-shrink: 0; background: #f1f5f9;">
+
+                                                            {{-- ✨ កែសម្រួល៖ ប្រើលក្ខខណ្ឌត្រួតពិនិត្យរូបភាពដូច Subcategory ក្នុង Component ធំ --}}
+                                                            @if ($sub->image && file_exists(public_path($sub->image)))
+                                                                <img src="{{ asset($sub->image) }}"
+                                                                    alt="{{ $sub->subcategory_name }}"
+                                                                    class="w-100 h-100 object-fit-cover">
+                                                            @else
+                                                                {{-- បង្ហាញរូបភាព Placeholder បើគ្មានរូបភាព Subcategory --}}
+                                                                <img src="https://placehold.co/50x50?text={{ urlencode($sub->subcategory_name) }}"
+                                                                    alt="{{ $sub->subcategory_name }}"
+                                                                    class="w-100 h-100 object-fit-cover">
+                                                            @endif
+                                                        </div>
+
+                                                        {{-- ឈ្មោះ Subcategory --}}
+                                                        <span class="sub-name"
+                                                            style="font-size: 13px;">{{ $sub->subcategory_name }}</span>
+                                                    </a>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
                                 @endforeach
                             </div>
                         </div>
@@ -949,6 +1115,44 @@
     </script>
 
     @livewireScripts
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // ដំណើរការសម្រាប់តែទំហំអេក្រង់តូចជាង 992px ប៉ុណ្ណោះ
+            if (window.innerWidth < 992) {
+                let submenuTriggers = document.querySelectorAll('.custom-has-submenu > a');
+
+                submenuTriggers.forEach(function(trigger) {
+                    trigger.addEventListener('click', function(e) {
+                        // ប្រសិនបើ Category នោះមាន Submenu
+                        let submenu = this.nextElementSibling;
+                        if (submenu && submenu.classList.contains('custom-subcategory-menu')) {
+                            e.preventDefault(); // ឃាត់កុំឱ្យលោតទៅ Link ថ្មីសិន
+
+                            // បិទ Submenu ផ្សេងទៀតដែលកំពុងបើក
+                            document.querySelectorAll('.custom-subcategory-menu').forEach(function(
+                                item) {
+                                if (item !== submenu) item.style.display = 'none';
+                            });
+
+                            // បើក/បិទ Submenu មួយនេះ
+                            if (submenu.style.display === 'block') {
+                                submenu.style.display = 'none';
+                                this.setAttribute('data-clicked', 'false');
+                            } else {
+                                submenu.style.display = 'block';
+                                this.setAttribute('data-clicked', 'true');
+                            }
+                        }
+                    });
+
+                    // អនុញ្ញាតឱ្យចុចចូល Link ផ្ទាល់បើគេ Double Tap
+                    trigger.addEventListener('dblclick', function(e) {
+                        window.location.href = this.getAttribute('href');
+                    });
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>

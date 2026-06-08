@@ -24,13 +24,16 @@ class Store extends Model
         'is_active'
     ];
 
-    // កំណត់ទំនាក់ទំនង (Relationship) ទៅកាន់តារាង Vendors
     public function vendor()
     {
-        return $this->belongsTo(Vendor::class);
+        return $this->belongsTo(Vendor::class, 'vendor_id');
     }
     public function products(): HasMany // 👈 វានឹងស្គាល់លក្ខណៈសម្បត្តិ HasMany ត្រឹមត្រូវពី Eloquent
     {
         return $this->hasMany(Product::class, 'store_id');
     }
+//     public function user()
+// {
+//     return $this->belongsTo(\App\Models\User::class);
+// }
 }

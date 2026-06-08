@@ -8,18 +8,16 @@ new class extends Component {
     public $order;
     public $qrCodeString;
     public $md5;
-    public $remainingTime = 300; // 5 នាទី
-    public $isPaid = false; // បន្ថែម State ដើម្បីសម្គាល់ការបង់លុយរួចរាល់
+    public $remainingTime = 300;
+    public $isPaid = false;
 
     public function mount(Order $order)
     {
-        // ពិនិត្យថា Order នេះជារបស់ User ដែលកំពុង Login
         if ($order->user_id !== auth()->id()) {
             abort(403, 'Unauthorized');
         }
 
-        // បើ Order នេះបានបង់លុយរួចហើយ កុំឱ្យចូលទៅទំព័រ QR ទៀត
-        if ($order->status === 'completed') {
+        if ($order->payment && $order->payment->status === 'paid') {
             $this->isPaid = true;
         }
 
@@ -40,10 +38,20 @@ new class extends Component {
         if ($this->isPaid) {
             return;
         }
+        $this->order->refresh();
+        $this->order->load('payment');
 
-        if ($this->remainingTime > 0) {
-            $this->remainingTime -= 3;
+        if ($this->order->payment && $this->order->payment->status === 'paid') {
+            $this->isPaid = true;
+            $this->dispatch('payment-success');
+            return;
         }
+
+        if ($this->remainingTime <= 0) {
+            session()->flash('error', 'Payment timed out. Please try again.');
+            return;
+        }
+        $this->remainingTime -= 3;
 
         $service = new KhqrService();
         $result = $service->checkPayment($this->md5);
@@ -51,30 +59,32 @@ new class extends Component {
         \Illuminate\Support\Facades\Log::info('Payment Result:', $result);
 
         if ($result['paid']) {
-            // ១. Update ស្ថានភាព Order
-            $this->order->update(['status' => 'completed', 'updated_at' => now()]);
+            $this->order->update([
+                'status' => 'processing',
+                'updated_at' => now(),
+            ]);
 
-            // ២. Update ស្ថានភាព Payment ទៅជា completed ដូចគ្នាដើម្បីជៀសវាង Error Database
             \App\Models\Payment::where('order_id', $this->order->id)->update([
                 'status' => 'paid',
                 'updated_at' => now(),
             ]);
 
-            // ប្តូរ State ទៅជា True ដើម្បីបង្ហាញផ្ទាំង Success UI ភ្លាមៗ
             $this->isPaid = true;
-
-            // ផ្ញើ Event ទៅកាន់ Browser សម្រាប់លេងសំឡេង ឬ Trigger បន្ថែមបើចង់
             $this->dispatch('payment-success');
-        }
-
-        if ($this->remainingTime <= 0 && !$this->isPaid) {
-            session()->flash('error', 'Payment timed out. Please try again.');
         }
     }
 
     public function cancelOrder()
     {
-        $this->order->update(['status' => 'cancelled']);
+        $this->order->update([
+            'status' => 'cancelled',
+        ]);
+
+        if ($this->order->payment) {
+            $this->order->payment->update([
+                'status' => 'cancelled', // ឬទុកជា pending ធម្មតាក៏បាន
+            ]);
+        }
         session()->flash('message', 'Order has been cancelled.');
         return $this->redirectRoute('home');
     }
@@ -205,7 +215,9 @@ new class extends Component {
                 </div>
 
                 @if ($qrCodeString)
-                    <div wire:poll.3s="checkPaymentStatus" wire:key="qr-section">
+                    {{-- ប្រសិនបើនៅសល់ម៉ោង ឱ្យវារត់ Polling តែបើអស់ម៉ោង ឱ្យវាឈប់រត់តែម្តង --}}
+                    <div @if ($remainingTime > 0) wire:poll.3s="checkPaymentStatus" @endif
+                        wire:key="qr-section">
                         <div class="qr-wrapper mb-4">
                             {!! QrCode::size(220)->margin(1)->generate($qrCodeString) !!}
                         </div>

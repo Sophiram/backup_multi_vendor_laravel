@@ -5,9 +5,7 @@ namespace App\Http\Controllers\Vendor;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Shipping;
-use App\Models\ShippingCompany;
 use App\Models\Store;
-use App\Notifications\OrderShipped;
 use App\Notifications\OrderStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,13 +13,20 @@ use Illuminate\Support\Facades\DB;
 
 class VendorOrderController extends Controller
 {
-
     /**
- * 🏪 បង្ហាញប្រវត្តិនៃការលក់របស់ Vendor និងចំណូលដែលបានកាត់ Commission រួច
- */
+     * Display Vendor Sales History with Pre-generated Checkout Shipping Information
+     */
     public function vendorIndex(Request $request)
     {
-        $vendor_store_ids = Store::where('user_id', Auth::id())->pluck('id');
+        $user = Auth::user();
+
+        if (!$user->vendor) {
+            abort(403, 'You do not have a vendor account.');
+        }
+
+        $vendorId = $user->vendor->id;
+
+        $vendor_store_ids = Store::where('vendor_id', $vendorId)->pluck('id');
 
         $orders = Order::whereHas('items.product', function ($query) use ($vendor_store_ids) {
                 $query->whereIn('store_id', $vendor_store_ids);
@@ -34,88 +39,81 @@ class VendorOrderController extends Controller
             ->orderByDesc('created_at')
             ->paginate(10);
 
-        // 🟢 បន្ថែមបន្ទាត់ទាញយក Shipping Companies នេះចូល
-        $shippingCompanies = ShippingCompany::where('vendor_id', Auth::id())
-                            ->where('is_active', true)
-                            ->get();
-
-        // 🟢 បន្ថែមវាចូលក្នុង compact()
-        return view('vendor.orders.orderhistory', compact('orders', 'shippingCompanies'));
+        // 💡 កាត់ចោល $shippingCompanies Query ចេញពីទីនេះ ព្រោះលែងត្រូវការឱ្យ Vendor រើសជាន់គ្នានៅលើ Modal ទៀតហើយ
+        return view('vendor.orders.orderhistory', compact('orders'));
     }
 
+    /**
+     * Display Detailed Order View and Track Logs
+     */
     public function vendorShowOrder($id)
     {
-        // 🟢 បន្ថែម 'shipping' ចូលក្នុង with()
         $order = Order::with(['items.product.images', 'items.product.store', 'user', 'shipping'])
                     ->findOrFail($id);
 
-        $userId = Auth::id();
+        $user = Auth::user();
+        if (!$user->vendor) {
+            abort(403, 'You do not have a vendor account.');
+        }
 
-        // ត្រងយកតែ Items ណាដែលជារបស់ Vendor នេះ
-        $order->items = $order->items->filter(function ($item) use ($userId) {
-            return ($item->product->store->user_id ?? null) == $userId;
+        $vendorId = $user->vendor->id;
+
+        $order->items = $order->items->filter(function ($item) use ($vendorId) {
+            return ($item->product->store->vendor_id ?? null) == $vendorId;
         });
 
-        // បើសិនជា Order នោះមិនមាន Items របស់ Vendor នេះទេ មិនអនុញ្ញាតឱ្យមើល
         if ($order->items->isEmpty()) {
             abort(403, 'You do not have permission to view this order.');
         }
-        $shippingCompanies = \App\Models\ShippingCompany::where('vendor_id', Auth::id())
-                      ->where('is_active', true)
-                      ->get();
 
-        return view('vendor.orders.ordershow', compact('order', 'shippingCompanies'));
+        // 💡 កាត់ចោល $shippingCompanies Query ចេញពីទីនេះដូចគ្នា ដើម្បីឱ្យកូដដំណើរការលឿន (Lightweight)
+        return view('vendor.orders.ordershow', compact('order'));
     }
 
+   public function updateStatus(Request $request, Order $order)
+    {
+        // Eager load payment ដើម្បីអាចពិនិត្យស្ថានភាពបាន
+        $order->load('payment');
 
-     public function updateStatus(Request $request, Order $order)
-        {
-            $rules = [
-                'status' => 'required|in:pending,processing,shipped,completed,cancelled',
-            ];
+        $request->validate([
+            'status' => 'required|in:pending,processing,shipped,completed,cancelled',
+        ]);
 
-            if ($request->status == 'shipped') {
-                $rules['shipping_company_id'] = 'required|exists:shipping_companies,id';
-                // ធ្វើឱ្យ tracking_number មិនចាំបាច់ required ខ្លាំងពេកទេ បើអ្នកមាន logic បង្កើតវាដោយខ្លួនឯង
-                $rules['tracking_number'] = 'nullable|string';
+        // 🔒 Business Logic: កុំឱ្យ Completed បើសិនជាមិនទាន់ Paid
+        if ($request->status == 'completed') {
+            if (!$order->payment || $order->payment->status !== 'paid') {
+                return redirect()->back()->with('error', 'Cannot complete this order because the payment has not been confirmed yet.');
             }
+        }
 
-            $request->validate($rules);
+        DB::transaction(function () use ($request, $order) {
+            $order->update(['status' => $request->status]);
 
-            // ប្រើ Database Transaction ដើម្បីសុវត្ថិភាព
-            DB::transaction(function () use ($request, $order) {
-                $order->update(['status' => $request->status]);
-
-                if ($request->status == 'shipped') {
-                    $trackingNumber = $request->tracking_number;
-                        if (empty($trackingNumber)) {
-                            $trackingNumber = 'TRK-' . strtoupper(substr(uniqid(), -8));
-                            // លទ្ធផល: TRK-665D8F2A (កូដមានប្រវែងខ្លីជាងមុនបន្តិច)
-                        }
-                    \App\Models\Shipping::updateOrCreate(
-                        ['order_id' => $order->id],
-                        [
-                            'shipping_company_id' => $request->shipping_company_id,
-                            'tracking_number'  => $trackingNumber,
-                            'shipping_status'  => 'Shipped',
-                            'shipped_at'       => now(),
-                            'shipping_cost'    => $request->shipping_cost ?? 0.00,
-                            'notes'            => $request->notes,
-                        ]
-                    );
-                }
-
-                if ($request->status == 'completed') {
-                    \App\Models\Shipping::where('order_id', $order->id)->update([
-                        'delivered_at' => now(),
-                        'shipping_status' => 'delivered'
+            // 🚚 ប្រសិនបើប្តូរទៅជា Shipped
+            if ($request->status == 'shipped') {
+                $shipping = Shipping::where('order_id', $order->id)->first();
+                if ($shipping) {
+                    $shipping->update([
+                        'shipping_status' => 'Shipped',
+                        'shipped_at'      => now(),
+                        'notes'           => $request->notes ?? $shipping->notes,
                     ]);
                 }
-            });
-                if ($order->user) {
-                        $order->user->notify(new OrderStatusUpdated($order));
-             }
+            }
 
-            return redirect()->back()->with('success', 'Order status updated and customer notified!');
+            // 🟢 ប្រសិនបើប្តូរទៅជា Completed
+            if ($request->status == 'completed') {
+                Shipping::where('order_id', $order->id)->update([
+                    'delivered_at'    => now(),
+                    'shipping_status' => 'delivered'
+                ]);
+            }
+        });
+
+        if ($order->user) {
+            $order->user->notify(new OrderStatusUpdated($order));
         }
+
+        return redirect()->back()->with('success', 'Order status updated and customer notified successfully!');
+    }
 }

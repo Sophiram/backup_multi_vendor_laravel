@@ -9,30 +9,34 @@ use App\Models\Store;
 use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\SubCategory;
-use App\Models\AttributeValue;
 use App\Models\ProductAttribute;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class VendorProductController extends Controller
 {
-    public function index(){
-        $authuserid = Auth::id();
-        $stores = Store::where('user_id', $authuserid)->get();
-        $availableAttributes = Attribute::all();
+    private function getVendorId() {
+        return Auth::user()->vendor->id ?? null;
+    }
+    public function index() {
+        $vendorId = $this->getVendorId();
+        if (!$vendorId) return redirect()->back()->with('error', 'Vendor profile required.');
 
+        $stores = Store::where('vendor_id', $vendorId)->get();
+        $availableAttributes = Attribute::all();
         $categories = Category::all();
         return view('vendor.product.create', compact('stores', 'availableAttributes', 'categories'));
     }
 
     public function manage(){
-        $currentVendor = Auth::id();
+        $vendorId = $this->getVendorId();
         $availableAttributes = Attribute::all();
         $categories = Category::all();
 
-        $products = Product::where('vendor_id', $currentVendor)
+        $products = Product::where('vendor_id', $vendorId)
             ->with(['attributes.attribute', 'attributes.attributeValue'])
             ->get();
 
@@ -40,7 +44,7 @@ class VendorProductController extends Controller
     }
 
     public function storeproduct(Request $request){
-        // dd($request->attributes);
+        $vendorId = $this->getVendorId();
         $validated = $request->validate([
 
             'product_name' => 'required|string|max:250',
@@ -48,7 +52,7 @@ class VendorProductController extends Controller
             'sku' => 'required|string|unique:products,sku',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'required|exists:sub_categories,id', // ប្តូរពី nullable ទៅ required
-            'store_id' => 'required|exists:stores,id',
+            'store_id' => ['required', \Illuminate\Validation\Rule::exists('stores', 'id')->where('vendor_id', $vendorId)],
             'regular_price' => 'required|numeric|min:0',
             'discounted_price' => 'nullable|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',
@@ -73,7 +77,7 @@ class VendorProductController extends Controller
             'product_name' => $request->product_name,
             'description' => $request->description ?? 'No description provided', // បន្ថែមតម្លៃ Default នេះ
             'sku' => $request->sku,
-            'vendor_id' => Auth::id(),
+            'vendor_id' => $vendorId,
             'category_id' => $request->category_id,
             'subcategory_id'   => $request->subcategory_id,
             'store_id' => $request->store_id,
@@ -103,14 +107,12 @@ class VendorProductController extends Controller
             // បន្ថែមនៅខាងលើ foreach នៃ attributes
             $attributes = $request->input('attributes', []);
 
-            if (empty($attributes)) {
-                // បើសិនជាអ្នកចង់លុបចោលទាំងអស់នៅពេលគេមិនផ្ញើមក
+           if (!empty($attributes)) {
                 ProductAttribute::where('product_id', $product->id)->delete();
-            } else {
-                ProductAttribute::where('product_id', $product->id)->delete();
+
                 foreach ($attributes as $attrData) {
-                    // ប្រើ isset ឬ !empty ដើម្បីប្រាកដថាទិន្នន័យមាន
-                    if (isset($attrData['attribute_id'])) {
+                    // បន្ថែមលក្ខខណ្ឌត្រួតពិនិត្យឱ្យបានច្បាស់លាស់
+                    if (isset($attrData['attribute_id']) && !empty($attrData['attribute_id'])) {
                         ProductAttribute::create([
                             'product_id'         => $product->id,
                             'attribute_id'       => $attrData['attribute_id'],
@@ -121,7 +123,7 @@ class VendorProductController extends Controller
                 }
             }
 
-    return redirect()->back()->with('success', 'Product with Attributes Added Successfully!');
+         return redirect()->back()->with('success', 'Product with Attributes Added Successfully!');
     }
 
     public function showproduct($id){
@@ -135,12 +137,10 @@ class VendorProductController extends Controller
 
     public function updateproduct(Request $request, $id)
     {
-        // dd($request->only(['meta_title', 'meta_description', 'product_name']));
+        $vendorId = $this->getVendorId();
 
-        // 1. Find the product
-        $product = Product::findOrFail($id);
+        $product = Product::where('id', $id)->where('vendor_id', $vendorId)->firstOrFail();
 
-        // 2. Security Check: Ensure the logged-in vendor owns this product
         if ($product->vendor_id !== Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
@@ -152,14 +152,13 @@ class VendorProductController extends Controller
             'sku' => 'required|string|unique:products,sku,' . $id,
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:sub_categories,id',
-            'store_id' => 'required|exists:stores,id',
-            'regular_price' => 'required|numeric|min:0',
-            'discounted_price' => 'nullable|numeric|min:0',
+            'store_id' => ['required', \Illuminate\Validation\Rule::exists('stores', 'id')->where('vendor_id', $vendorId)],
+             'discounted_price' => 'nullable|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',
             'stock_quantity' => 'required|integer|min:0',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
             'attributes' => 'nullable|array',
-            'attributes.*.attribute_id' => 'nullable|exists:attributes,id',
+            'attributes.*.attribute_id' => 'required|exists:attributes,id',
             'attributes.*.attribute_value_id' => 'nullable|exists:attribute_values,id',
             'attributes.*.additional_price' => 'nullable|numeric|min:0',
         ]);
@@ -202,7 +201,6 @@ class VendorProductController extends Controller
             $attributes = $request->input('attributes', []);
 
             foreach ($attributes as $attrData) {
-    // Ensure the data is an array and has at least the minimum required ID
                 if (is_array($attrData) && !empty($attrData['attribute_id'])) {
                     ProductAttribute::create([
                         'product_id'         => $product->id,
@@ -218,12 +216,9 @@ class VendorProductController extends Controller
     }
 
     public function deleteproduct($id){
-        $product = Product::findOrFail($id);
+        $vendorId = $this->getVendorId();
+        $product = Product::where('id', $id)->where('vendor_id', $vendorId)->firstOrFail();
 
-        // Security check: ensure vendor owns this product
-        if ($product->vendor_id !== Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
 
         // Delete product attributes first
         ProductAttribute::where('product_id', $product->id)->delete();

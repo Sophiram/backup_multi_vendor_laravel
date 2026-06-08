@@ -208,13 +208,11 @@
                 <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100">
                     <h5 class="fw-bold text-dark mb-3">Top Selling Products</h5>
                     <div class="d-flex flex-column gap-3">
-
                         @forelse ($topProducts ?? [] as $product)
                             <div class="d-flex align-items-center justify-content-between p-2 rounded-3 hover-bg">
                                 <div class="d-flex align-items-center gap-3">
                                     <div class="bg-light rounded-3 p-1 d-flex align-items-center justify-content-center"
                                         style="width: 48px; height: 48px; overflow: hidden;">
-
                                         @if ($product->images && $product->images->first())
                                             <img src="{{ asset('storage/' . $product->images->first()->image_path) }}"
                                                 alt="{{ $product->product_name }}" class="rounded-2"
@@ -223,9 +221,7 @@
                                             <img src="https://placehold.co/48x48?text=No+Image" alt="No Image"
                                                 class="rounded-2" style="width: 100%; height: 100%; object-fit: cover;">
                                         @endif
-
                                     </div>
-
                                     <div>
                                         <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">
                                             {{ $product->product_name }}</h6>
@@ -241,244 +237,213 @@
                                 <p class="text-muted small mb-0">No top selling products in this period.</p>
                             </div>
                         @endforelse
-
                     </div>
                 </div>
             </div>
-
-
         </div>
+    </div>
 
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 
-        <style>
-            body {
-                background-color: #f8fafc;
+    <style>
+        body {
+            background-color: #f8fafc;
+        }
+
+        .metric-card {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            z-index: 1;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        .custom-table tbody tr:hover {
+            background-color: #f8fafc;
+            transform: translateX(3px);
+            transition: all 0.2s ease;
+        }
+
+        .hover-bg:hover {
+            background-color: #f8fafc;
+            cursor: pointer;
+        }
+
+        /* ជួសជុល និងបន្ថែម Blur Effect ទៅកាន់ SweetAlert */
+        .swal2-backdrop-show {
+            backdrop-filter: blur(8px) !important;
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
             }
 
-            .metric-card {
-                position: relative;
-                overflow: hidden;
-                transition: all 0.4s ease;
-                z-index: 1;
-            }
+            // 1. Dynamic Date Range Picker Setup
+            flatpickr("#dateRangePicker", {
+                mode: "range",
+                dateFormat: "Y-m-d",
+                defaultDate: [
+                    "{{ isset($startDate) ? $startDate->format('Y-m-d') : '2026-01-01' }}",
+                    "{{ isset($endDate) ? $endDate->format('Y-m-d') : '2026-12-31' }}"
+                ],
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        const startDate = instance.formatDate(selectedDates[0], "Y-m-d");
+                        const endDate = instance.formatDate(selectedDates[1], "Y-m-d");
 
-            .metric-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08) !important;
-            }
+                        Swal.fire({
+                            title: 'Fetching Data...',
+                            text: 'Please wait a moment',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
 
-            .custom-table tbody tr:hover {
-                background-color: #f8fafc;
-                transform: translateX(3px);
-                transition: all 0.2s ease;
-            }
+                        window.location.href = `?start_date=${startDate}&end_date=${endDate}`;
+                    }
+                }
+            });
 
-            .hover-bg:hover {
-                background-color: #f8fafc;
-                cursor: pointer;
-            }
+            @php
+                $defaultValues = '[31000, 40000, 28000, 51000, 42000, 109000, 100000, 120000, 85000, 95000, 140000, 162000]';
+                $defaultLabels = '["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]';
 
-            .timeline-item {
-                position: relative;
-            }
-
-            .timeline-item:not(:last-child)::before {
-                content: '';
-                position: absolute;
-                left: 16px;
-                top: 32px;
-                bottom: 0;
-                width: 2px;
-                background-color: #e2e8f0;
-            }
-
-            .style-action-btn {
-                transition: all 0.3s ease;
-                border-style: dashed;
-            }
-
-            .style-action-btn:hover {
-                transform: translateY(-3px);
-                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
-            }
-
-            .text-purple {
-                color: #a855f7;
-            }
-        </style>
-
-        <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <script src="https://unpkg.com/lucide@latest"></script>
-
-        <script>
-            document.addEventListener("DOMContentLoaded", function() {
-                if (typeof lucide !== 'undefined') {
-                    lucide.createIcons();
+                if (isset($values)) {
+                    $decodedValues = is_string($values) ? json_decode($values, true) : (is_object($values) ? $values->toArray() : $values);
+                    $finalValues = !empty($decodedValues) && count($decodedValues) > 0 ? json_encode($decodedValues) : $defaultValues;
+                } else {
+                    $finalValues = $defaultValues;
                 }
 
-                // 1. Dynamic Date Range Picker Setup
-                flatpickr("#dateRangePicker", {
-                    mode: "range",
-                    dateFormat: "Y-m-d",
-                    defaultDate: [
-                        "{{ isset($startDate) ? $startDate->format('Y-m-d') : '2026-01-01' }}",
-                        "{{ isset($endDate) ? $endDate->format('Y-m-d') : '2026-12-31' }}"
-                    ],
-                    onChange: function(selectedDates, dateStr, instance) {
-                        if (selectedDates.length === 2) {
-                            const startDate = instance.formatDate(selectedDates[0], "Y-m-d");
-                            const endDate = instance.formatDate(selectedDates[1], "Y-m-d");
+                if (isset($labels)) {
+                    $decodedLabels = is_string($labels) ? json_decode($labels, true) : (is_object($labels) ? $labels->toArray() : $labels);
+                    $finalLabels = !empty($decodedLabels) && count($decodedLabels) > 0 ? json_encode($decodedLabels) : $defaultLabels;
+                } else {
+                    $finalLabels = $defaultLabels;
+                }
+            @endphp
 
-                            Swal.fire({
-                                title: 'Fetching Data...',
-                                text: 'Please wait a moment',
-                                allowOutsideClick: false,
-                                didOpen: () => {
-                                    Swal.showLoading();
-                                }
-                            });
-
-                            window.location.href = `?start_date=${startDate}&end_date=${endDate}`;
-                        }
+            // 2. Area Chart (Dynamic Sales Performance)
+            const salesOptions = {
+                series: [{
+                    name: 'Gross Sales',
+                    data: {!! $finalValues !!}
+                }],
+                chart: {
+                    type: 'area',
+                    height: 330,
+                    toolbar: {
+                        show: false
                     }
-                });
-
-
-                @php
-                    $defaultValues = '[31000, 40000, 28000, 51000, 42000, 109000, 100000, 120000, 85000, 95000, 140000, 162000]';
-                    $defaultLabels = '["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]';
-
-                    // ពិនិត្យមើល $values (ទិន្នន័យទឹកប្រាក់)
-                    if (isset($values)) {
-                        $decodedValues = is_string($values) ? json_decode($values, true) : (is_object($values) ? $values->toArray() : $values);
-                        $finalValues = !empty($decodedValues) && count($decodedValues) > 0 ? json_encode($decodedValues) : $defaultValues;
-                    } else {
-                        $finalValues = $defaultValues;
+                },
+                colors: ['#6366f1'],
+                stroke: {
+                    curve: 'smooth',
+                    width: 3
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        colorStops: [{
+                                offset: 0,
+                                color: '#6366f1',
+                                opacity: 0.35
+                            },
+                            {
+                                offset: 100,
+                                color: '#ec4899',
+                                opacity: 0.0
+                            }
+                        ]
                     }
+                },
+                xaxis: {
+                    categories: {!! $finalLabels !!}
+                },
+                tooltip: {
+                    theme: 'dark'
+                }
+            };
+            new ApexCharts(document.querySelector("#salesChart"), salesOptions).render();
 
-                    // ពិនិត្យមើល $labels (ឈ្មោះខែ)
-                    if (isset($labels)) {
-                        $decodedLabels = is_string($labels) ? json_decode($labels, true) : (is_object($labels) ? $labels->toArray() : $labels);
-                        $finalLabels = !empty($decodedLabels) && count($decodedLabels) > 0 ? json_encode($decodedLabels) : $defaultLabels;
-                    } else {
-                        $finalLabels = $defaultLabels;
-                    }
-                @endphp
-
-                // 2. Area Chart (Dynamic Sales Performance)
-                const salesOptions = {
-                    series: [{
-                        name: 'Gross Sales',
-                        // ប្រើប្រាស់អថេរដែលបានចម្រោះរួចពីខាងលើ
-                        data: {!! $finalValues !!}
-                    }],
-                    chart: {
-                        type: 'area',
-                        height: 330,
-                        toolbar: {
-                            show: false
-                        }
-                    },
-                    colors: ['#6366f1'],
-                    stroke: {
-                        curve: 'smooth',
-                        width: 3
-                    },
-                    fill: {
-                        type: 'gradient',
-                        gradient: {
-                            colorStops: [{
-                                    offset: 0,
-                                    color: '#6366f1',
-                                    opacity: 0.35
-                                },
-                                {
-                                    offset: 100,
-                                    color: '#ec4899',
-                                    opacity: 0.0
-                                }
-                            ]
-                        }
-                    },
-                    xaxis: {
-                        // ប្រើប្រាស់អថេរដែលបានចម្រោះរួចពីខាងលើ
-                        categories: {!! $finalLabels !!}
-                    },
-                    tooltip: {
-                        theme: 'dark'
-                    }
-                };
-                new ApexCharts(document.querySelector("#salesChart"), salesOptions).render();
-
-                // 3. Donut Chart (Dynamic Category Distribution)
-                const distributionOptions = {
-                    series: {!! isset($chartPieValues) ? json_encode($chartPieValues) : '[44, 55, 13, 33]' !!},
-                    labels: {!! isset($chartPieLabels)
-                        ? json_encode($chartPieLabels)
-                        : '["Electronics", "Clothing", "Home Appliances", "Others"]' !!},
-                    chart: {
-                        type: 'donut',
-                        height: 300
-                    },
-                    colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'],
-                    legend: {
-                        position: 'bottom'
-                    },
-                    dataLabels: {
-                        enabled: false
-                    },
-                    plotOptions: {
-                        pie: {
-                            donut: {
-                                labels: {
+            // 3. Donut Chart (Dynamic Category Distribution)
+            const distributionOptions = {
+                series: {!! isset($chartPieValues) ? json_encode($chartPieValues) : '[44, 55, 13, 33]' !!},
+                labels: {!! isset($chartPieLabels)
+                    ? json_encode($chartPieLabels)
+                    : '["Electronics", "Clothing", "Home Appliances", "Others"]' !!},
+                chart: {
+                    type: 'donut',
+                    height: 300
+                },
+                colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899'],
+                legend: {
+                    position: 'bottom'
+                },
+                dataLabels: {
+                    enabled: false
+                },
+                plotOptions: {
+                    pie: {
+                        donut: {
+                            labels: {
+                                show: true,
+                                total: {
                                     show: true,
-                                    total: {
-                                        show: true,
-                                        label: 'Total Products',
-                                        formatter: () => '{{ number_format($productCount ?? 1420) }}'
-                                    }
+                                    label: 'Total Products',
+                                    formatter: () => '{{ number_format($productCount ?? 1420) }}'
                                 }
                             }
                         }
                     }
-                };
-                new ApexCharts(document.querySelector("#distributionChart"), distributionOptions).render();
-            });
+                }
+            };
+            new ApexCharts(document.querySelector("#distributionChart"), distributionOptions).render();
+        });
 
-            function refreshDashboard() {
-                Swal.fire({
-                    title: 'Updating Dashboard',
-                    html: `
-            <div class="d-flex flex-column align-items-center my-2">
-                <div class="spinner-border mb-3" role="status"
-                     style="width: 3.5rem; height: 3.5rem; color: #6366f1; border-width: 4px;">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="text-secondary mb-0 small fw-medium" style="letter-spacing: 0.5px;">
-                    Synchronizing live ecosystem data...
-                </p>
-            </div>
-        `,
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
-                    background: '#ffffff',
-                    // បន្ថែម Blur នៅផ្ទៃខាងក្រោយអេក្រង់ ឱ្យមើលទៅទំនើប
-                    backdrop: `rgba(15, 23, 42, 0.2) backdrop-filter: blur(8px)`,
-                    customClass: {
-                        popup: 'rounded-4 border-0 p-4 shadow-lg',
-                        title: 'fw-bold text-dark fs-4 mb-0'
-                    },
-                    didOpen: () => {
-                        // ពន្យារពេល ១.២ វិនាទី ដើម្បីឱ្យ User មើលឃើញ Animation ដ៏ស្អាតនេះសិន
-                        setTimeout(() => {
-                            location.reload();
-                        }, 1200);
-                    }
-                });
-            }
-        </script>
-    @endsection
+        function refreshDashboard() {
+            Swal.fire({
+                title: 'Updating Dashboard',
+                html: `
+                    <div class="d-flex flex-column align-items-center my-2">
+                        <div class="spinner-border mb-3" role="status"
+                             style="width: 3.5rem; height: 3.5rem; color: #6366f1; border-width: 4px;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-secondary mb-0 small fw-medium" style="letter-spacing: 0.5px;">
+                            Synchronizing live ecosystem data...
+                        </p>
+                    </div>
+                `,
+                showConfirmButton: false,
+                allowOutsideClick: false,
+                background: '#ffffff',
+                backdrop: `rgba(15, 23, 42, 0.2)`,
+                /* កែសម្រួលចេញជាកូដពណ៌ធម្មតា ចំណែក Blur គឺគ្រប់គ្រងដោយ CSS ខាងលើ */
+                customClass: {
+                    popup: 'rounded-4 border-0 p-4 shadow-lg',
+                    title: 'fw-bold text-dark fs-4 mb-0'
+                },
+                didOpen: () => {
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1200);
+                }
+            });
+        }
+    </script>
+@endsection

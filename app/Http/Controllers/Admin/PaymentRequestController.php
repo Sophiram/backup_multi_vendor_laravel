@@ -10,7 +10,9 @@ class PaymentRequestController extends Controller
     // បង្ហាញបញ្ជីសំណើទាំងអស់សម្រាប់ Admin
     public function index()
     {
-        $requests = PayoutRequest::with('user')->latest()->get();
+        $requests = PayoutRequest::with('vendor.user')
+                        ->latest()
+                        ->paginate(10);
         return view('admin.payouts.index', compact('requests'));
     }
 

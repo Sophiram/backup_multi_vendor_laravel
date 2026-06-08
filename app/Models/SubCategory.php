@@ -11,11 +11,12 @@ class SubCategory extends Model
 
     protected $table = 'sub_categories';
 
-    protected $fillable = [
+   protected $fillable = [
         'category_id',
-        'subcategory_name'
+        'subcategory_name',
+        'image',
+        'status'
     ];
-
     public function category(){
         return $this->belongsTo(Category::class);
     }

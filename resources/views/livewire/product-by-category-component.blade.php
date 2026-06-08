@@ -8,26 +8,22 @@ use App\Models\Category;
 new class extends Component {
     use WithPagination;
 
-    // កំណត់ប្រើប្រាស់ Bootstrap សម្រាប់លីងទំព័រ Pagination
     protected $paginationTheme = 'bootstrap';
 
-    // បង្កើត Properties សម្រាប់ចាប់ទិន្នន័យពី View
     public $category_name;
-    public $price_range = 1000;
+    public $price_range = 2000;
     public $sort_by = 'default';
-
     public $selected_stars = [];
+    public $selected_subcategory_id = null;
 
-    // មុខងាររត់ដំបូងគេដើម្បីចាប់យក category_name ពី Route URL
     public function mount($category_name)
     {
         $this->category_name = $category_name;
     }
 
-    // មុខងារ Reset ទំព័រ Pagination មកលេខ ១ វិញភ្លាមៗពេលអ្នកប្រើប្រាស់ផ្លាស់ប្តូរ Filter
     public function updating($property)
     {
-        if (in_array($property, ['price_range', 'sort_by', 'selected_stars', 'category_name'])) {
+        if (in_array($property, ['price_range', 'sort_by', 'selected_stars', 'category_name', 'selected_subcategory_id'])) {
             $this->resetPage();
         }
     }
@@ -35,6 +31,13 @@ new class extends Component {
     public function changeCategory($name)
     {
         $this->category_name = $name;
+        $this->selected_subcategory_id = null;
+        $this->resetPage();
+    }
+
+    public function changeSubcategory($subId)
+    {
+        $this->selected_subcategory_id = $this->selected_subcategory_id == $subId ? null : $subId;
         $this->resetPage();
     }
 
@@ -55,7 +58,7 @@ new class extends Component {
 
             $wishlist[$productId] = [
                 'name' => $product->product_name,
-                'price' => $product->discounted_price ?? $product->regular_price,
+                'price' => $product->discounted_price > 0 && $product->discounted_price < $product->regular_price ? $product->discounted_price : $product->regular_price,
                 'image' => $productImage,
             ];
 
@@ -69,20 +72,24 @@ new class extends Component {
         session()->put('wishlist', $wishlist);
     }
 
-    // ផ្នែក Render - បានបញ្ចូលលក្ខខណ្ឌចម្រោះរបស់ Admin
     public function render(): mixed
     {
-        $category = Category::where('category_name', $this->category_name)->firstOrFail();
-        $categories = Category::all();
+        $category = Category::with('subcategories')->where('category_name', $this->category_name)->firstOrFail();
+        $categories = Category::with('subcategories')->get();
 
-        // 💡 ប្រើប្រាស់ productReviews ឱ្យដូចគ្នានៅគ្រប់កន្លែង
+        // បង្កើត SQL Statement សម្រាប់កំណត់យកតម្លៃលក់ពិតប្រាកដ
+        $effectivePrice = 'CASE WHEN discounted_price > 0 AND discounted_price < regular_price THEN discounted_price ELSE regular_price END';
+
         $query = Product::with(['images', 'vendor.stores', 'productReviews'])
             ->where('status', 'published')
             ->where('category_id', $category->id)
-            ->where('regular_price', '<=', $this->price_range);
+            ->whereRaw("($effectivePrice) <= ?", [$this->price_range]); // Filter តាមតម្លៃលក់ជាក់ស្ដែង
 
-        // ឆែកលក្ខខណ្ឌ Rating (ប្រើប្រាស់លុះត្រាតែ Model Product មាន Relation productReviews)
-        if (!empty($this->selected_stars) && method_exists(Product::class, 'productReviews')) {
+        if ($this->selected_subcategory_id) {
+            $query->where('subcategory_id', $this->selected_subcategory_id);
+        }
+
+        if (!empty($this->selected_stars)) {
             $query->whereHas('productReviews', function ($q) {
                 $q->select('product_id')
                     ->groupBy('product_id')
@@ -90,10 +97,11 @@ new class extends Component {
             });
         }
 
+        // Sort តាមតម្លៃលក់ជាក់ស្ដែង
         if ($this->sort_by === 'price_low_high') {
-            $query->orderBy('regular_price', 'asc');
+            $query->orderByRaw("($effectivePrice) ASC");
         } elseif ($this->sort_by === 'price_high_low') {
-            $query->orderBy('regular_price', 'desc');
+            $query->orderByRaw("($effectivePrice) DESC");
         } elseif ($this->sort_by === 'latest') {
             $query->orderBy('created_at', 'desc');
         }
@@ -110,7 +118,7 @@ new class extends Component {
 ?>
 
 <div>
-    <div class="container py-3 py-md-5">
+    <div class="container py-2">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link
@@ -123,18 +131,16 @@ new class extends Component {
             }
 
             .category-banner {
-                background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #f97316 100%) !important;
+                background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #93c5fd 100%) !important;
                 border-radius: 24px;
                 padding: 40px;
                 color: #ffffff;
-                margin-bottom: 30px;
-                box-shadow: 0 15px 35px -10px rgba(124, 58, 237, 0.3);
+                margin-bottom: 25px;
+                box-shadow: 0 15px 35px -10px rgba(59, 130, 246, 0.2);
             }
 
             .filter-card {
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(241, 245, 249, 0.9) 100%) !important;
-                backdrop-filter: blur(20px);
-                -webkit-backdrop-filter: blur(20px);
+                background: #ffffff !important;
                 border-radius: 22px;
                 border: 1px solid rgba(226, 232, 240, 0.8);
                 padding: 24px;
@@ -143,9 +149,32 @@ new class extends Component {
                 box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.03);
             }
 
+            .alibaba-sub-card {
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                transition: all 0.2s ease;
+                cursor: pointer;
+                text-decoration: none;
+                display: block;
+            }
+
+            .alibaba-sub-card:hover,
+            .alibaba-sub-card.active {
+                border-color: #3b82f6;
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+                transform: translateY(-3px);
+            }
+
+            .alibaba-sub-card.active {
+                background-color: #eff6ff;
+                border-width: 2px;
+            }
+
+            /* --- Product Card Base --- */
             .product-card {
                 background: #ffffff !important;
-                border-radius: 20px;
+                border-radius: 16px;
                 border: 1px solid rgba(226, 232, 240, 0.8);
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 overflow: hidden;
@@ -155,9 +184,9 @@ new class extends Component {
             }
 
             .product-card:hover {
-                transform: translateY(-6px);
-                border-color: #7c3aed;
-                box-shadow: 0 20px 35px -10px rgba(124, 58, 237, 0.15);
+                transform: translateY(-4px);
+                border-color: #3b82f6;
+                box-shadow: 0 15px 30px -10px rgba(59, 130, 246, 0.15);
             }
 
             .img-wrapper {
@@ -174,72 +203,70 @@ new class extends Component {
                 width: 100%;
                 height: 100%;
                 object-fit: contain;
-                padding: 12px;
+                padding: 8px;
                 transition: transform 0.5s ease;
             }
 
-            .product-card:hover .img-wrapper img {
-                transform: scale(1.05);
-            }
-
             .product-info-block {
-                padding: 12px;
+                padding: 10px;
                 flex-grow: 1;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
+                gap: 6px;
             }
 
             .product-title-text {
                 font-family: 'Outfit', sans-serif;
-                font-size: 0.9rem;
+                font-size: 0.82rem;
                 font-weight: 600;
                 color: #0f172a !important;
                 display: -webkit-box;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
-                height: 2.4rem;
-                line-height: 1.2rem;
-                margin-bottom: 6px;
+                height: 2.2rem;
+                line-height: 1.1rem;
+                margin-bottom: 2px;
             }
 
+            /* --- Consistent & Responsive Cart CSS --- */
             .premium-stepper-container {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 6px;
                 width: 100%;
                 margin-top: auto;
             }
 
             .stepper-input-group {
                 border: 1px solid #cbd5e1;
-                border-radius: 10px;
+                border-radius: 8px;
                 overflow: hidden;
                 background-color: #ffffff;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 width: 100%;
-                height: 36px;
+                height: 30px;
             }
 
             .btn-stepper {
                 border: none;
                 background: #f1f5f9;
                 color: #334155;
-                width: 36px;
+                width: 28px;
                 height: 100%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 0.8rem;
+                font-size: 0.75rem;
                 cursor: pointer;
-                transition: background-color 0.15s ease;
+                transition: background 0.2s;
             }
 
             .btn-stepper:hover {
-                background-color: #e2e8f0;
+                background: #e2e8f0;
             }
 
             .qty-inline-input {
@@ -247,91 +274,135 @@ new class extends Component {
                 background-color: transparent !important;
                 color: #1e293b !important;
                 font-weight: 700;
-                font-size: 0.85rem;
+                font-size: 0.8rem;
                 text-align: center;
                 flex-grow: 1;
-                width: 30px;
+                width: 25px;
                 padding: 0 !important;
-                box-shadow: none !important;
             }
 
             .btn-premium-inline-cart {
-                background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+                background: linear-gradient(135deg, #1e3a8a, #3b82f6) !important;
                 color: #ffffff !important;
                 font-weight: 600;
                 font-size: 0.8rem;
                 border: none !important;
-                border-radius: 10px !important;
+                border-radius: 8px !important;
                 width: 100%;
-                height: 36px;
+                height: 30px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                gap: 6px;
-                transition: all 0.2s ease-in-out !important;
+                gap: 4px;
+                white-space: nowrap;
+                transition: all 0.2s;
             }
 
             .btn-premium-inline-cart:hover {
                 background: linear-gradient(135deg, #f97316, #ea580c) !important;
-                transform: translateY(-1px);
             }
 
-            @media (min-width: 768px) {
+            /* --- កែសម្រួលសម្រាប់ទូរស័ព្ទដៃ (Mobile Responsive) --- */
+            @media (max-width: 767.98px) {
                 .product-info-block {
-                    padding: 16px;
+                    padding: 8px;
+                    gap: 4px;
                 }
 
                 .product-title-text {
-                    font-size: 0.95rem;
+                    font-size: 0.78rem;
+                    height: 2rem;
+                    line-height: 1rem;
+                }
+
+                .current-price {
+                    font-size: 0.85rem !important;
+                }
+
+                .old-price {
+                    font-size: 0.65rem !important;
+                }
+
+                .stepper-input-group {
+                    height: 28px;
+                }
+
+                .btn-premium-inline-cart {
+                    height: 28px;
+                }
+
+                .btn-premium-inline-cart span {
+                    display: none;
+                }
+
+                .btn-premium-inline-cart i {
+                    font-size: 0.9rem;
+                    margin: 0;
+                }
+            }
+
+            /* សម្រាប់អេក្រង់ធំ (Desktop) រៀបចំជាជួរដេកទន្ទឹមគ្នាពេញលេញ */
+            @media (min-width: 768px) {
+                .product-info-block {
+                    padding: 14px;
+                }
+
+                .product-title-text {
+                    font-size: 0.92rem;
+                    height: 2.4rem;
+                    line-height: 1.2rem;
                 }
 
                 .premium-stepper-container {
                     flex-direction: row;
                     align-items: center;
+                    gap: 6px;
                 }
 
                 .stepper-input-group {
-                    width: 95px;
+                    width: 75px;
                     flex-shrink: 0;
+                    height: 34px;
                 }
 
                 .btn-premium-inline-cart {
                     flex-grow: 1;
                     width: auto;
+                    height: 34px;
+                }
+
+                .btn-premium-inline-cart span {
+                    display: inline !important;
+                }
+            }
+
+            @media (min-width: 1200px) {
+                .stepper-input-group {
+                    width: 85px;
                 }
             }
 
             .current-price {
-                font-size: 1rem;
+                font-size: 0.95rem;
                 font-weight: 800;
                 color: #ef4444;
                 font-family: 'Outfit';
             }
 
             .old-price {
-                font-size: 0.75rem;
+                font-size: 0.72rem;
                 color: #94a3b8;
                 text-decoration: line-through;
                 font-family: 'Outfit';
             }
 
             .stock-status-badge {
-                font-size: 0.65rem;
+                font-size: 0.62rem;
                 color: #10b981;
                 font-weight: 600;
                 background: #ecfdf5;
-                padding: 2px 6px;
-                border-radius: 6px;
-            }
-
-            .vendor-premium-badge {
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(4px);
-                color: #1e293b;
-                font-weight: 600;
-                font-size: 0.65rem;
-                border-radius: 8px !important;
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+                padding: 1px 5px;
+                border-radius: 4px;
             }
 
             .category-filter-btn {
@@ -340,27 +411,15 @@ new class extends Component {
                 transition: all 0.2s ease;
                 border-radius: 10px !important;
                 margin-bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
             }
 
             .category-filter-btn.active {
-                background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+                background: linear-gradient(135deg, #1e3a8a, #3b82f6) !important;
                 color: #ffffff !important;
                 font-weight: 600;
-            }
-
-            @media (max-width: 575.98px) {
-                .category-banner {
-                    padding: 24px 20px;
-                    border-radius: 16px;
-                }
-
-                .category-banner h1 {
-                    font-size: 1.8rem;
-                }
-
-                .current-price {
-                    font-size: 0.9rem;
-                }
             }
         </style>
 
@@ -375,23 +434,51 @@ new class extends Component {
                     category.</p>
             </div>
 
-            <div class="row g-3 g-md-4">
-                {{-- 🖥️ Sidebar Filters (Desktop Only) --}}
+            {{-- Subcategories Layout --}}
+            @if ($category->subcategories && $category->subcategories->count() > 0)
+                <div class="mb-5 animate__animated animate__fadeIn">
+                    <h5 class="fw-bold text-dark mb-3" style="font-family: 'Outfit';">Shop by Subcategory</h5>
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
+                        @foreach ($category->subcategories as $sub)
+                            <div class="col">
+                                <div wire:click="changeSubcategory({{ $sub->id }})"
+                                    class="alibaba-sub-card text-center p-3 h-100 {{ $selected_subcategory_id == $sub->id ? 'active' : '' }}">
+                                    <div class="mx-auto mb-2 d-flex align-items-center justify-content-center bg-light rounded-circle"
+                                        style="width: 70px; height: 70px; overflow:hidden;">
+                                        @if ($sub->image && file_exists(public_path($sub->image)))
+                                            <img src="{{ asset($sub->image) }}" alt="{{ $sub->subcategory_name }}"
+                                                class="w-100 h-100 object-fit-cover">
+                                        @else
+                                            <img src="https://placehold.co/150x150?text={{ urlencode($sub->subcategory_name) }}"
+                                                class="w-100 h-100 object-fit-cover">
+                                        @endif
+                                    </div>
+                                    <div class="small fw-bold text-dark text-truncate">{{ $sub->subcategory_name }}
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            <div class="row g-2 g-md-4">
+                {{-- Sidebar Filters --}}
                 <div class="col-lg-3 d-none d-lg-block">
                     <div class="filter-card border-0">
                         <h5 class="fw-bold mb-4 d-flex align-items-center justify-content-between text-dark"
                             style="font-family: 'Outfit';">
                             <span><i class="fa-solid fa-sliders text-primary me-2"></i>Filter Products</span>
-                            @if (!empty($selected_stars) || $price_range < 2000 || $sort_by !== 'default')
+                            @if (!empty($selected_stars) || $price_range < 2000 || $sort_by !== 'default' || $selected_subcategory_id)
                                 <button class="btn btn-link p-0 text-muted small text-decoration-none"
-                                    wire:click="$set('selected_stars', []); $set('price_range', 2000); $set('sort_by', 'default');"
+                                    wire:click="$set('selected_stars', []); $set('price_range', 2000); $set('sort_by', 'default'); $set('selected_subcategory_id', null);"
                                     style="font-size: 0.75rem;">
                                     <i class="fa-solid fa-rotate-left"></i> Reset
                                 </button>
                             @endif
                         </h5>
 
-                        {{-- 💰 1. PRICE RANGE FILTER --}}
+                        {{-- Price Range --}}
                         <div class="mb-4">
                             <label class="form-label fw-bold text-dark text-uppercase small"
                                 style="letter-spacing: 0.5px;">Price Range</label>
@@ -406,7 +493,7 @@ new class extends Component {
 
                         <hr class="my-4" style="border-color: rgba(0,0,0,0.06);">
 
-                        {{-- 🌟 2. PRODUCT RATING FILTER --}}
+                        {{-- Rating --}}
                         <div class="mb-4">
                             <label class="form-label fw-bold text-dark text-uppercase small"
                                 style="letter-spacing: 0.5px;">Product Rating</label>
@@ -434,17 +521,25 @@ new class extends Component {
 
                         <hr class="my-4" style="border-color: rgba(0,0,0,0.06);">
 
-                        {{-- 📁 3. PRODUCT CATEGORIES FILTER --}}
+                        {{-- Categories on Sidebar --}}
                         <div class="mb-4">
                             <label class="form-label fw-bold text-dark text-uppercase small mb-2"
                                 style="letter-spacing: 0.5px;">Product Categories</label>
-                            <div class="d-flex flex-column">
+                            <div class="d-flex flex-column" style="max-height: 350px; overflow-y: auto;">
                                 @foreach ($categories as $cat)
                                     <button type="button" wire:click="changeCategory('{{ $cat->category_name }}')"
                                         class="btn btn-light category-filter-btn border-0 py-2 px-3 text-start {{ $category_name === $cat->category_name ? 'active' : 'text-secondary bg-transparent' }}">
-                                        <i
-                                            class="fa-solid {{ $category_name === $cat->category_name ? 'fa-folder-open' : 'fa-folder' }} me-2 opacity-70"></i>
-                                        {{ $cat->category_name }}
+                                        <div class="rounded-circle bg-white d-flex align-items-center justify-content-center border shadow-sm"
+                                            style="width: 24px; height: 24px; overflow:hidden; flex-shrink:0;">
+                                            @if ($cat->image && file_exists(public_path($cat->image)))
+                                                <img src="{{ asset($cat->image) }}"
+                                                    class="w-100 h-100 object-fit-cover">
+                                            @else
+                                                <i class="fa-solid fa-layer-group text-muted"
+                                                    style="font-size: 10px;"></i>
+                                            @endif
+                                        </div>
+                                        <span class="text-truncate">{{ $cat->category_name }}</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -469,23 +564,22 @@ new class extends Component {
                                 <option value="price_low_high">Price: Low-High</option>
                                 <option value="price_high_low">Price: High-Low</option>
                             </select>
-                            <button class="btn btn-light d-lg-none rounded-3 border-light-subtle py-1.5" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#mobileFilterCollapse">
+                            <button class="btn btn-light d-lg-none rounded-3 border-light-subtle py-1.5"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#mobileFilterCollapse">
                                 <i class="fa-solid fa-filter"></i>
                             </button>
                         </div>
                     </div>
 
-                    {{-- 📱 Mobile Filter Dropdown --}}
+                    {{-- Mobile Filter Dropdown --}}
                     <div class="collapse d-lg-none mb-4" id="mobileFilterCollapse">
-                        <div class="p-3 rounded-4 border bg-white shadow-sm animate__animated animate__fadeIn">
+                        <div class="p-3 rounded-4 border bg-white shadow-sm">
                             <div class="mb-3">
                                 <label class="form-label fw-bold text-dark small text-uppercase">Price Range
                                     (${{ $price_range }})</label>
-                                <input type="range" class="form-range" min="10" max="2000" step="10"
-                                    wire:model.live="price_range">
+                                <input type="range" class="form-range" min="10" max="2000"
+                                    step="10" wire:model.live="price_range">
                             </div>
-
                             <div class="mb-3">
                                 <label class="form-label fw-bold text-dark small text-uppercase">Rating</label>
                                 <div class="d-flex flex-wrap gap-2 mt-1">
@@ -504,7 +598,6 @@ new class extends Component {
                                     @endfor
                                 </div>
                             </div>
-
                             <div>
                                 <label class="form-label fw-bold text-dark small text-uppercase">Categories</label>
                                 <div class="d-flex flex-wrap gap-1 mt-1">
@@ -523,17 +616,14 @@ new class extends Component {
                     {{-- Product Grid --}}
                     <div class="row g-2 g-md-3">
                         @forelse($products as $product)
-                            <div class="col-6 col-md-4 animate__animated animate__fadeInUp">
+                            <div class="col-6 col-md-4 col-lg-3">
                                 <div class="product-card">
-                                    {{-- Image Wrapper --}}
                                     <div class="img-wrapper">
                                         <a href="{{ route('product.details', ['productId' => $product->id]) }}"
                                             class="d-block w-100 h-100">
                                             <img src="{{ $product->images->first() ? asset('storage/' . $product->images->first()->image_path) : 'https://placehold.co/400x400?text=No+Image' }}"
                                                 class="card-img-top" alt="{{ $product->product_name }}">
                                         </a>
-
-                                        {{-- Wishlist Button --}}
                                         <button wire:click="toggleWishlist({{ $product->id }})"
                                             class="btn p-0 border-0 shadow-none position-absolute top-0 end-0 mt-2 me-2"
                                             style="z-index: 10;">
@@ -544,21 +634,14 @@ new class extends Component {
                                                 <i class="fa-regular fa-heart fs-5 text-secondary"></i>
                                             @endif
                                         </button>
-
-                                        <span
-                                            class="badge position-absolute top-0 start-0 m-2 px-2 py-1 vendor-premium-badge d-none d-sm-inline-block">
-                                            <i class="fa-solid fa-circle-check me-1 text-primary"></i> Verified
-                                        </span>
                                     </div>
 
-                                    {{-- Product Details Block --}}
                                     <div class="product-info-block">
                                         <div>
                                             <span class="text-muted text-uppercase fw-bold d-block"
-                                                style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                                                style="font-size: 0.6rem; letter-spacing: 0.5px;">
                                                 {{ $product->vendor && $product->vendor->stores->first() ? $product->vendor->stores->first()->store_name : 'Official Store' }}
                                             </span>
-
                                             <h5 class="product-title-text" title="{{ $product->product_name }}">
                                                 <a href="{{ route('product.details', ['productId' => $product->id]) }}"
                                                     class="text-dark text-decoration-none">
@@ -566,7 +649,7 @@ new class extends Component {
                                                 </a>
                                             </h5>
 
-                                            {{-- 🌟 Rating Stars (កែសម្រួលឱ្យប្រើ productReviews ទាំងអស់) --}}
+                                            {{-- កែលម្អ Rating Stars ឱ្យបង្ហាញគ្រប់ ៥ ផ្កាយជានិច្ច --}}
                                             @php
                                                 $avgRating =
                                                     $product->productReviews && $product->productReviews->count() > 0
@@ -574,72 +657,68 @@ new class extends Component {
                                                         : 0;
                                                 $fullStars = floor($avgRating);
                                                 $halfStar = $avgRating - $fullStars >= 0.5 ? 1 : 0;
+                                                $emptyStars = 5 - ($fullStars + $halfStar);
                                                 $totalReviews = $product->productReviews
                                                     ? $product->productReviews->count()
                                                     : 0;
                                             @endphp
-                                            <div class="d-flex align-items-center text-warning gap-1 mb-2"
-                                                style="font-size: 0.72rem;">
+                                            <div class="d-flex align-items-center text-warning gap-1 mb-1"
+                                                style="font-size: 0.68rem;">
                                                 <div class="d-flex gap-0.5">
-                                                    @if ($avgRating > 0)
-                                                        @for ($i = 0; $i < $fullStars; $i++)
-                                                            <i class="fa-solid fa-star"></i>
-                                                        @endfor
-                                                        @if ($halfStar)
-                                                            <i class="fa-solid fa-star-half-stroke"></i>
-                                                        @endif
-                                                        @for ($i = 0; $i < 5 - $fullStars - $halfStar; $i++)
-                                                            <i class="fa-regular fa-star text-muted opacity-40"></i>
-                                                        @endfor
-                                                    @else
-                                                        @for ($i = 0; $i < 5; $i++)
-                                                            <i class="fa-regular fa-star text-muted opacity-30"></i>
-                                                        @endfor
+                                                    {{-- បង្ហាញផ្កាយពេញ --}}
+                                                    @for ($i = 0; $i < $fullStars; $i++)
+                                                        <i class="fa-solid fa-star"></i>
+                                                    @endfor
+
+                                                    {{-- បង្ហាញផ្កាយកន្លះ --}}
+                                                    @if ($halfStar)
+                                                        <i class="fa-solid fa-star-half-stroke"></i>
                                                     @endif
+
+                                                    {{-- បង្ហាញផ្កាយទទេ (Empty Stars) ឱ្យគ្រប់ចំនួន ៥ --}}
+                                                    @for ($i = 0; $i < $emptyStars; $i++)
+                                                        <i class="fa-regular fa-star text-muted"
+                                                            style="opacity: 0.4;"></i>
+                                                    @endfor
                                                 </div>
                                                 @if ($totalReviews > 0)
                                                     <span class="text-muted"
-                                                        style="font-size: 0.68rem;">({{ $totalReviews }})</span>
+                                                        style="font-size: 0.65rem;">({{ $totalReviews }})</span>
                                                 @endif
                                             </div>
 
-                                            {{-- Price & Stock --}}
-                                            <div class="d-flex align-items-center justify-content-between gap-1 mb-3">
+                                            {{-- Price --}}
+                                            <div class="d-flex align-items-center justify-content-between gap-1 mb-2">
                                                 <div class="d-flex align-items-baseline flex-wrap gap-1">
-                                                    <span
-                                                        class="current-price">${{ number_format($product->discounted_price ?? $product->regular_price, 2) }}</span>
-                                                    @if (isset($product->discounted_price) && $product->discounted_price < $product->regular_price)
+                                                    @if ($product->discounted_price > 0 && $product->discounted_price < $product->regular_price)
+                                                        <span
+                                                            class="current-price">${{ number_format($product->discounted_price, 2) }}</span>
                                                         <span
                                                             class="old-price">${{ number_format($product->regular_price, 2) }}</span>
+                                                    @else
+                                                        <span
+                                                            class="current-price">${{ number_format($product->regular_price, 2) }}</span>
                                                     @endif
                                                 </div>
-                                                <div class="stock-status-badge d-none d-sm-block">
-                                                    {{ $product->stock_status ?? 'In Stock' }}</div>
                                             </div>
                                         </div>
 
-                                        {{-- 🛒 Responsive Stepper + Add To Cart Button --}}
+                                        {{-- Stepper & Button (Responsive & Consistent Section) --}}
                                         <div class="premium-stepper-container" x-data="{ quantity: 1, maxStock: {{ $product->stock_quantity ?? 10 }} }">
-                                            {{-- Stepper (- / +) --}}
                                             <div class="stepper-input-group">
                                                 <button type="button" class="btn-stepper"
-                                                    @click="if(quantity > 1) quantity--">
-                                                    <i class="fa-solid fa-minus"></i>
-                                                </button>
+                                                    @click="if(quantity > 1) quantity--"><i
+                                                        class="fa-solid fa-minus"></i></button>
                                                 <input type="number" x-model="quantity"
                                                     class="form-control qty-inline-input" readonly>
                                                 <button type="button" class="btn-stepper"
-                                                    @click="if(quantity < maxStock) quantity++">
-                                                    <i class="fa-solid fa-plus"></i>
-                                                </button>
+                                                    @click="if(quantity < maxStock) quantity++"><i
+                                                        class="fa-solid fa-plus"></i></button>
                                             </div>
-
-                                            {{-- Add to Cart Button --}}
                                             <button type="button"
                                                 @click="$dispatch('addToCartFromAnywhere', { productId: {{ $product->id }}, quantity: quantity })"
                                                 class="btn btn-premium-inline-cart">
-                                                <i class="fa-solid fa-basket-shopping"></i>
-                                                <span>Add to Cart</span>
+                                                <i class="fa-solid fa-basket-shopping"></i><span>Add to Cart</span>
                                             </button>
                                         </div>
                                     </div>
@@ -648,14 +727,11 @@ new class extends Component {
                         @empty
                             <div class="col-12 text-center py-5">
                                 <div class="p-5 rounded-5 border max-width-md mx-auto"
-                                    style="background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);">
+                                    style="background: rgba(255,255,255,0.6);">
                                     <i class="fa-solid fa-box-open text-muted mb-3 display-4"></i>
-                                    <h4 class="fw-bold text-dark" style="font-family: 'Outfit';">No Products Found
-                                    </h4>
-                                    <p class="text-muted small">We couldn't find any items matching your current
-                                        filters in this category.</p>
+                                    <h4 class="fw-bold text-dark">No Products Found</h4>
                                     <button class="btn btn-primary rounded-3 px-4 py-2 mt-2"
-                                        wire:click="$set('selected_stars', []); $set('price_range', 2000);">Reset
+                                        wire:click="$set('selected_stars', []); $set('price_range', 2000); $set('selected_subcategory_id', null);">Reset
                                         Filter</button>
                                 </div>
                             </div>
@@ -666,7 +742,6 @@ new class extends Component {
                     <div class="d-flex justify-content-center mt-5">
                         {{ $products->links() }}
                     </div>
-
                 </div>
             </div>
         </div>

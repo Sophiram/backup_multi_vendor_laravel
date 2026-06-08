@@ -11,7 +11,6 @@ class VendorController extends Controller
 {
     public function manage_vendor(Request $request)
     {
-        // ស្វែងរកហាងទាំងអស់ អាចបន្ថែមការ Filter បាននៅទីនេះ
         $vendors = Vendor::with('user')->get();
         return view('admin.manage.vendor', compact('vendors'));
     }
@@ -30,25 +29,21 @@ class VendorController extends Controller
     }
 
 
-    public function update(Request $request, $id)
+    public function updateVendor(Request $request, $id)
     {
+        // ១. Validation៖ ត្រូវប្រើឈ្មោះ approval_status ដូចក្នុង form
         $request->validate([
-            'status' => 'required|in:pending,approved,rejected', // Validation ត្រឹមត្រូវតាម ENUM
+            'approval_status' => 'required|in:pending,approved,rejected',
         ]);
 
-        $store = Store::findOrFail($id);
-        $store->status = $request->status;
+        // ២. Fetch Vendor (មិនមែន Store ទេ)
+        $vendor = \App\Models\Vendor::findOrFail($id);
 
-        // ប្រសិនបើចង់ឱ្យវា Active ស្វ័យប្រវត្តិតែម្តងពេល Approved
-        if ($request->status === 'approved') {
-            $store->is_active = 1;
-        } else {
-            $store->is_active = 0;
-        }
+        // ៣. អាប់ដេតទិន្នន័យ
+        $vendor->approval_status = $request->approval_status;
+        $vendor->save();
 
-        $store->save();
-
-        return redirect()->back()->with('success', 'Store status updated successfully.');
+        return redirect()->back()->with('success', 'Vendor status updated successfully.');
     }
 
 

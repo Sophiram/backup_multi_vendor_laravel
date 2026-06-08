@@ -18,7 +18,6 @@ class Order extends Model
         'payment_method',
         'shipped_at',
         'delivered_at',
-        'payment_status',
         'status',
     ];
 
@@ -45,7 +44,7 @@ class Order extends Model
 
     public function payment()
     {
-        return $this->hasOne(Payment::class);
+        return $this->hasOne(Payment::class, 'order_id', 'id');
     }
 
      public function shipping() {

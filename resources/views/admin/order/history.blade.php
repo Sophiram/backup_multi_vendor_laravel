@@ -98,10 +98,11 @@
                                 <td>
                                     @php
                                         $statusColors = [
-                                            'completed' => 'success',
+                                            'delivered' => 'success',
                                             'processing' => 'primary',
-                                            'delivery' => 'info',
+                                            'shipped' => 'info',
                                             'cancelled' => 'danger',
+                                            'pending' => 'warning',
                                         ];
                                         $color = $statusColors[strtolower($order->status)] ?? 'secondary';
                                     @endphp
@@ -113,13 +114,46 @@
                                 </td>
                                 <td>
                                     @php
-                                        $paymentColor = $order->payment_status == 'paid' ? 'success' : 'warning';
+                                        $currentPaymentStatus = $order->payment->status ?? 'pending';
+                                        $paymentColors = [
+                                            'paid' => 'success',
+                                            'pending' => 'warning',
+                                            'failed' => 'danger',
+                                            'refunded' => 'secondary',
+                                        ];
+                                        $paymentColor = $paymentColors[strtolower($currentPaymentStatus)] ?? 'warning';
                                     @endphp
-                                    <span
-                                        class="badge rounded-pill px-2.5 py-1.5 text-uppercase font-monospace fw-semibold bg-{{ $paymentColor }}-subtle text-{{ $paymentColor }} border border-{{ $paymentColor }}-subtle"
-                                        style="font-size: 0.72rem;">
-                                        {{ $order->payment_status ?? 'Unpaid' }}
-                                    </span>
+
+                                    {{-- ត្រួតពិនិត្យលក្ខខណ្ឌ៖ បើស្ថានភាពជា paid នោះនឹងបង្ហាញតែ Badge មិនឱ្យដូរឡើយ --}}
+                                    @if (strtolower($currentPaymentStatus) === 'paid')
+                                        <span
+                                            class="badge rounded-pill text-uppercase font-monospace fw-semibold bg-success-subtle text-success border border-success-subtle px-2"
+                                            style="font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; width: 120px; height: 28px;">
+                                            Paid
+                                        </span>
+                                    @else
+                                        <form action="{{ route('admin.order.payment.update', $order->id) }}" method="POST"
+                                            onchange="this.submit()" class="m-0">
+                                            @csrf
+                                            <select name="payment_status"
+                                                class="form-select form-select-sm rounded-pill font-monospace fw-semibold text-uppercase bg-{{ $paymentColor }}-subtle text-{{ $paymentColor }} border-0 px-2"
+                                                style="font-size: 0.72rem; cursor: pointer; width: 120px;">
+                                                <option value="pending"
+                                                    {{ strtolower($currentPaymentStatus) === 'pending' ? 'selected' : '' }}>
+                                                    Pending</option>
+                                                <option value="paid"
+                                                    {{ strtolower($currentPaymentStatus) === 'paid' ? 'selected' : '' }}>
+                                                    Paid
+                                                </option>
+                                                <option value="failed"
+                                                    {{ strtolower($currentPaymentStatus) === 'failed' ? 'selected' : '' }}>
+                                                    Failed</option>
+                                                <option value="refunded"
+                                                    {{ strtolower($currentPaymentStatus) === 'refunded' ? 'selected' : '' }}>
+                                                    Refunded</option>
+                                            </select>
+                                        </form>
+                                    @endif
                                 </td>
                                 <td class="pe-4 text-end">
                                     <div class="d-flex justify-content-end gap-1.5">
@@ -181,7 +215,7 @@
                 confirmButtonText: 'Yes, purge record!',
                 cancelButtonText: 'Cancel'
             }).then((result) => {
-                if (result.isConfirmed) {
+                    result.isConfirmed) {
                     document.getElementById('delete-form-' + id).submit();
                 }
             });

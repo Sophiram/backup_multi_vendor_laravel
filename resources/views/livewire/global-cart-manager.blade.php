@@ -5,7 +5,6 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\On;
 
 new class extends Component {
-
     // 🛒 1. Listen for the 'addToCartFromAnywhere' event globally
     #[On('addToCartFromAnywhere')]
     public function addToCart($productId, $quantity = 1)
@@ -33,10 +32,10 @@ new class extends Component {
             $cart[$productId]['quantity'] += $quantity;
         } else {
             $cart[$productId] = [
-                'name'     => $product->product_name,
-                'price'    => $product->discounted_price ?? $product->regular_price,
+                'name' => $product->product_name,
+                'price' => $product->discounted_price > 0 && $product->discounted_price < $product->regular_price ? $product->discounted_price : $product->regular_price,
                 'quantity' => $quantity,
-                'image'    => $productImage
+                'image' => $productImage,
             ];
         }
 
@@ -45,7 +44,7 @@ new class extends Component {
         $this->dispatch('cart-updated');
         $this->dispatch('notify', [
             'title' => 'Successfully added to cart!',
-            'type'  => 'success',
+            'type' => 'success',
         ]);
     }
 
@@ -69,7 +68,7 @@ new class extends Component {
             unset($wishlist[$productId]);
             $this->dispatch('notify', [
                 'title' => 'Removed from wishlist',
-                'type' => 'error'
+                'type' => 'error',
             ]);
         } else {
             // Fetch product details with its related images
@@ -81,13 +80,13 @@ new class extends Component {
 
                 $wishlist[$productId] = [
                     'name' => $product->product_name,
-                    'price' => $product->discounted_price ?? $product->regular_price,
+                    'price' => $product->discounted_price > 0 && $product->discounted_price < $product->regular_price ? $product->discounted_price : $product->regular_price,
                     'image' => $productImage,
                 ];
 
                 $this->dispatch('notify', [
                     'title' => 'Added to wishlist',
-                    'type' => 'success'
+                    'type' => 'success',
                 ]);
             }
         }

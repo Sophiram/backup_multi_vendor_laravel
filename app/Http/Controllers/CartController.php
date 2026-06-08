@@ -51,8 +51,10 @@ public function index()
             $cart->items()->create([
                 'product_id' => $product->id,
                 'quantity' => $validated['quantity'],
-                'price' => $product->discounted_price ?? $product->regular_price
-            ]);
+                'price' => ($product->discounted_price > 0 && $product->discounted_price < $product->regular_price)
+                            ? $product->discounted_price
+                            : $product->regular_price,
+                        ]);
         }
 
         return redirect()->back()->with('success', 'Product added to cart');

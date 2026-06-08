@@ -109,10 +109,17 @@ new class extends Component {
                     'payment_method' => $methodName,
                     'note' => $this->note,
                 ]);
+                \App\Models\Shipping::create([
+                    'order_id' => $newOrder->id,
+                    'shipping_company_id' => $this->selectedCompanyId,
+                    'tracking_number' => 'TRK-' . strtoupper(Str::random(10)), // Generate កូដតាមដាននៅទីនេះ
+                    'shipping_cost' => $this->shipping,
+                    'shipping_status' => 'pending',
+                ]);
 
                 // ២. ពិនិត្យស្តុក និងកាត់ស្តុក
                 foreach ($this->cartItems as $productId => $item) {
-                    $product = \App\Models\Product::where('id', $productId)->lockForUpdate()->first();
+                    $product = \App\Models\Product::with('store.vendor')->where('id', $productId)->lockForUpdate()->first();
 
                     if (!$product) {
                         throw new \Exception('Product not found.');
@@ -125,6 +132,7 @@ new class extends Component {
                     $product->decrement('stock_quantity', $item['quantity']);
                     $basePrice = $product->discounted_price > 0 ? $product->discounted_price : $product->regular_price;
                     $additionalPrice = 0;
+
                     if (!empty($item['attribute_value_id'])) {
                         $productAttribute = DB::table('product_attributes')->where('product_id', $productId)->where('attribute_value_id', $item['attribute_value_id'])->first();
 
@@ -133,13 +141,24 @@ new class extends Component {
                         }
                     }
                     $finalPrice = $basePrice + $additionalPrice;
+                    $totalItemPrice = $finalPrice * $item['quantity'];
+
+                    $rule = \App\Models\CommissionRule::where('category_id', $product->category_id)->where('status', 'Active')->first();
+
+                    $commissionRate = $rule ? $rule->commission_rate : 0.0;
+                    $commissionAmount = ($totalItemPrice * $commissionRate) / 100;
+                    $vendorNetAmount = $totalItemPrice - $commissionAmount;
 
                     OrderItem::create([
                         'order_id' => $newOrder->id,
                         'product_id' => $productId,
+                        'vendor_id' => $product->store->vendor->user_id ?? null,
                         'quantity' => $item['quantity'],
                         'price' => $finalPrice,
-                        'total' => $finalPrice * $item['quantity'],
+                        'total' => $totalItemPrice,
+                        'commission_rate' => $commissionRate, // បន្ថែមភាគរយ
+                        'commission_amount' => $commissionAmount, // បន្ថែមលុយ Commission
+                        'vendor_net_amount' => $vendorNetAmount, // បន្ថែមលុយអ្នកលក់
                     ]);
                 }
 
@@ -148,7 +167,7 @@ new class extends Component {
                     'order_id' => $newOrder->id,
                     'transaction_id' => 'TXN-' . strtoupper(Str::random(12)),
                     'amount' => $this->total,
-                    // 'status' => 'pending',
+                    'status' => 'pending',
                     'payment_method' => $methodName,
                 ]);
 

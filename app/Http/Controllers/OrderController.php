@@ -48,10 +48,15 @@ class OrderController extends Controller
 
     public function cancel($id)
     {
-        $order = Order::findOrFail($id);
+        $order = Order::with('payment')->findOrFail($id); // Eager load payment
 
         if ($order->user_id !== Auth::id() && Auth::user()->role !== 0) {
             abort(403);
+        }
+
+        // ពិនិត្យមើលតាមរយៈ Relationship (ការពារការ Cancel បើសិនជា Paid រួចហើយ)
+        if ($order->payment && $order->payment->status === 'paid') {
+            return redirect()->back()->with('error', 'Cannot cancel a paid order.');
         }
 
         if (!in_array($order->status, ['pending', 'processing'])) {
@@ -69,36 +74,40 @@ class OrderController extends Controller
         return redirect()->route('order.index')->with('success', 'Order cancelled successfully');
     }
 
-   /**
- * 🛒 មុខងារគណនា Commission ពេលអតិថិជនកុម្ម៉ង់ទិញ (Checkout Process)
- */
-    public function completeCheckout(Request $request)
+
+   public function completeCheckout(Request $request)
     {
         $cartItems = $request->input('cart_items', []);
-        $order = new Order();
 
-        DB::transaction(function () use ($cartItems, $order) {
+        if (empty($cartItems)) {
+            return redirect()->back()->with('error', 'Your cart is empty.');
+        }
+
+        DB::transaction(function () use ($cartItems) {
+
+            $order = Order::create([
+                'user_id' => Auth::id(),
+                'order_number' => 'ORD-' . date('YmdHis') . rand(100, 999),
+                'status' => 'pending',
+                'total_amount' => 0,
+            ]);
+
+            $totalOrderAmount = 0;
 
             foreach ($cartItems as $item) {
-                // 🟢 កែប្រែត្រង់នេះ៖ ប្តូរពី .findOrFail() មកជា ->findOrFail()
                 $product = Product::with('store.user')->findOrFail($item['product_id']);
 
-                // ១. ស្វែងរក % Commission ផ្អែកលើ Category របស់ផលិតផល
                 $rule = CommissionRule::where('category_id', $product->category_id)
                     ->where('status', 'Active')
                     ->first();
 
                 $commissionRate = $rule ? $rule->commission_rate : 0.00;
-
                 $totalPrice = $item['price'] * $item['quantity'];
+                $totalOrderAmount += $totalPrice;
 
-                // ២. គណនាទឹកប្រាក់ដែលក្រុមហ៊ុនត្រូវកាត់ទុក
                 $commissionAmount = ($totalPrice * $commissionRate) / 100;
-
-                // ៣. គណនាទឹកប្រាក់សុទ្ធដែល Vendor ត្រូវទទួលបាន (Net Earnings)
                 $vendorNetAmount = $totalPrice - $commissionAmount;
 
-                // ៤. បញ្ចូលទៅក្នុងតារាងលម្អិត OrderItem
                 OrderItem::create([
                     'order_id'          => $order->id,
                     'product_id'        => $product->id,
@@ -108,11 +117,21 @@ class OrderController extends Controller
                     'commission_rate'   => $commissionRate,
                     'commission_amount' => $commissionAmount,
                     'vendor_net_amount' => $vendorNetAmount,
+                    'total'             => $totalPrice,
                 ]);
 
-                // ៥. បន្ថយចំនួនស្តុកផលិតផល
                 $product->decrement('stock_quantity', $item['quantity']);
             }
+
+            // ២. Update តម្លៃសរុបរបស់ Order
+            $order->update(['total_amount' => $totalOrderAmount]);
+
+            // ៣. បង្កើត Payment record ជា Single Source of Truth
+            $order->payment()->create([
+                'amount' => $totalOrderAmount,
+                'status' => 'pending', // កំណត់ដំបូងថា pending
+                'payment_method' => 'manual', // ឬតាមអ្វីដែលបងកំណត់
+            ]);
         });
 
         return redirect()->route('order.index')->with('success', 'Order placed successfully!');

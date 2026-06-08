@@ -22,7 +22,7 @@
                     </div>
 
                     <div class="card-body p-3 p-md-4">
-                        <form action="{{ route('store.subcategory') }}" method="POST">
+                        <form action="{{ route('store.subcategory') }}" method="POST" enctype="multipart/form-data">
                             @csrf
 
                             <div class="row g-4">
@@ -54,6 +54,34 @@
                                         @endforeach
                                     </select>
                                     @error('category_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="image" class="form-label fw-semibold text-secondary small mb-2">
+                                        Sub Category Image
+                                    </label>
+                                    <input type="file" name="image" id="image"
+                                        class="form-control rounded-3 @error('image') is-invalid @enderror"
+                                        accept="image/*">
+                                    @error('image')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="status" class="form-label fw-semibold text-secondary small mb-2">
+                                        Status
+                                    </label>
+                                    <select name="status" id="status"
+                                        class="form-select rounded-3 @error('status') is-invalid @enderror" required>
+                                        <option value="active" {{ old('status', 'active') == 'active' ? 'selected' : '' }}>
+                                            Active</option>
+                                        <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>
+                                            Inactive</option>
+                                    </select>
+                                    @error('status')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>

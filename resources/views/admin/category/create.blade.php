@@ -11,31 +11,29 @@
             </a>
         </div>
 
-         @if ($errors->any())
-                <div class="alert alert-warning alert-dismissible fade show shadow-sm rounded-3 mb-4">
-                    <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following
-                        errors:</div>
-                    <ul class="mb-0 sm-thin">
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
+        @if ($errors->any())
+            <div class="alert alert-warning alert-dismissible fade show shadow-sm rounded-3 mb-4">
+                <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Please fix the following errors:</div>
+                <ul class="mb-0 sm-thin">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
 
         <div class="row">
             <div class="col-12 col-md-8 col-lg-6">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
                     <div class="card-header bg-white py-3 border-bottom border-light">
                         <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-                            <i data-lucide="plus-circle" class="text-primary" style="width: 20px; height: 20px;"></i> Create
-                            New Category
+                            <i data-lucide="plus-circle" class="text-primary" style="width: 20px; height: 20px;"></i> Create New Category
                         </h5>
                     </div>
 
                     <div class="card-body p-3 p-md-4">
-                        <form action="{{ route('store.category') }}" method="POST">
+                        <form action="{{ route('store.category') }}" method="POST" enctype="multipart/form-data">
                             @csrf
 
                             <div class="mb-4">
@@ -50,8 +48,33 @@
                                 @enderror
                             </div>
 
-                            <div
-                                class="d-flex flex-column-reverse flex-sm-row gap-2 justify-content-end pt-3 border-top border-light">
+                            <div class="mb-4">
+                                <label for="image" class="form-label fw-semibold text-secondary small mb-2">
+                                    Category Image
+                                </label>
+                                <input type="file" name="image" id="image"
+                                    class="form-control rounded-3 @error('image') is-invalid @enderror"
+                                    accept="image/*">
+                                <div class="form-text text-muted small">Recommended size: Square (e.g., 500x500px)</div>
+                                @error('image')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="status" class="form-label fw-semibold text-secondary small mb-2">
+                                    Status
+                                </label>
+                                <select name="status" id="status" class="form-select rounded-3 @error('status') is-invalid @enderror" required>
+                                    <option value="active" {{ old('status', 'active') == 'active' ? 'selected' : '' }}>Active</option>
+                                    <option value="inactive" {{ old('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                                @error('status')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="d-flex flex-column-reverse flex-sm-row gap-2 justify-content-end pt-3 border-top border-light">
                                 <a href="{{ route('category.manage') }}"
                                     class="btn btn-light rounded-3 fw-medium px-4 w-100 w-sm-auto">
                                     Cancel

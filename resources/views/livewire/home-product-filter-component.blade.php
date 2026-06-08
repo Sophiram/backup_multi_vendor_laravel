@@ -3,6 +3,7 @@
 use App\Models\Product;
 use App\Models\Category;
 use Livewire\Volt\Component;
+use Illuminate\Pagination\Paginator;
 use Livewire\Attributes\On;
 
 new class extends Component {
@@ -13,7 +14,10 @@ new class extends Component {
     {
         $this->categories = Category::all();
     }
-
+    public function boot(): void
+    {
+        Paginator::useBootstrapFive();
+    }
     public function filterByCategory($categoryId)
     {
         $this->selectedCategory = $categoryId;
@@ -78,7 +82,7 @@ new class extends Component {
 
             $wishlist[$productId] = [
                 'name' => $product->product_name,
-                'price' => $product->discounted_price ?? $product->regular_price,
+                'price' => $product->discounted_price > 0 && $product->discounted_price < $product->regular_price ? $product->discounted_price : $product->regular_price,
                 'image' => $productImage,
             ];
 
@@ -101,8 +105,7 @@ new class extends Component {
                 ->when($this->selectedCategory, function ($query) {
                     $query->where('category_id', $this->selectedCategory);
                 })
-                ->take(12)
-                ->get(),
+                ->paginate(10),
         ];
     }
 }; ?>
@@ -146,6 +149,7 @@ new class extends Component {
                 </div>
             </div>
         </div>
+
     </section>
 
     <div class="mt-4 mt-md-5">
@@ -175,7 +179,6 @@ new class extends Component {
                                 @if (isset(session()->get('wishlist', [])[$product->id]))
                                     <i
                                         class="fa-solid fa-heart fs-5 fs-md-4 text-danger animate__animated animate__bounceIn"></i>
-                                    Anti-corruption
                                 @else
                                     <i class="fa-regular fa-heart fs-5 fs-md-4 text-secondary"></i>
                                 @endif
@@ -266,7 +269,6 @@ new class extends Component {
                                         </div>
 
                                         <button type="button"
-                                            wire:click="addToCartFromAnywhere({{ $product->id }}, quantity)"
                                             x-on:click="$wire.addToCartFromAnywhere({{ $product->id }}, quantity)"
                                             class="btn-premium-inline-cart">
                                             <i class="fa-solid fa-basket-shopping"></i>
@@ -289,6 +291,16 @@ new class extends Component {
                 </div>
             @endforelse
         </div>
+    </div>
+    <div
+        class="card-footer bg-white py-3 border-top border-light d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3">
+        <small class="text-muted small">
+            Showing {{ $products->firstItem() ?? 0 }} to {{ $products->lastItem() ?? 0 }} of
+            {{ $products->total() }} entries
+        </small>
+        <nav aria-label="Pagination">
+            {{ $products->appends(request()->query())->links('pagination::bootstrap-5') }}
+        </nav>
     </div>
 </div>
 

@@ -21,21 +21,49 @@ class Vendor extends Model
     {
         return $this->hasMany(Store::class, 'vendor_id');
     }
-
-    // ទំនាក់ទំនង: Vendor ជាកម្មសិទ្ធិរបស់ User ម្នាក់
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class, 'vendor_id');
+    }
+
+    // បន្ថែម Relationship ទៅកាន់ Payouts
+    public function payouts()
+    {
+        return $this->hasMany(PayoutRequest::class, 'vendor_id');
+    }
+    public function getTotalEarningsAttribute()
+    {
+       return $this->orderItems()
+        ->whereHas('order', function($q) {
+            $q->whereIn('status', ['completed', 'shipped','processing']); // បន្ថែម 'shipped' ចូល
+        })->sum('vendor_net_amount');
+    }
+
+    // ២. សរុបទឹកប្រាក់ដែលកំពុង Pending
+    public function getPendingPayoutsAttribute()
+    {
+        return $this->payouts()->where('status', 'Pending')->sum('amount');
+    }
+
+    // ៣. ទឹកប្រាក់ដែលអាចដកបាន
+    public function getAvailableBalanceAttribute()
+    {
+        $paid = $this->payouts()->whereIn('status', ['Approved', 'Completed'])->sum('amount');
+        return $this->total_earnings - $this->pending_payouts - $paid;
+    }
+
+    // --- Logic សម្រាប់គណនា Commission ---
     public function getCommissionRateForCategory($categoryId)
     {
-        // ស្វែងរក Rule ណាដែលសកម្ម (Active) សម្រាប់ Category នោះ
         $rule = CommissionRule::where('category_id', $categoryId)
             ->where('status', 'Active')
             ->first();
 
-        // ប្រសិនបើរកឃើញ ឱ្យទាញយកអត្រានោះ បើមិនមានទេ ឱ្យយកតម្លៃ Default (ឧទាហរណ៍៖ 0%)
         return $rule ? $rule->commission_rate : 0.00;
     }
 }

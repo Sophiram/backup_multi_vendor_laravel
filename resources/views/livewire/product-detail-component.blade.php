@@ -102,7 +102,7 @@ new class extends Component {
     }
 }; ?>
 
-<div class="container my-5 product-details-wrapper">
+<div class="container my-2 product-details-wrapper">
     <!-- Google Fonts Links -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -423,8 +423,8 @@ new class extends Component {
                 <!-- Pricing Display -->
                 <div class="mb-4 bg-light p-3 rounded-3 d-flex align-items-baseline gap-3">
                     <span
-                        class="h2 mb-0 price-text">${{ number_format($product->discounted_price ?? $product->regular_price, 2) }}</span>
-                    @if (isset($product->discounted_price) && $product->discounted_price < $product->regular_price)
+                        class="h2 mb-0 price-text">${{ number_format($product->discounted_price > 0 ? $product->discounted_price : $product->regular_price, 2) }}</span>
+                    @if ($product->discounted_price > 0 && $product->discounted_price < $product->regular_price)
                         <span
                             class="text-muted text-decoration-line-through fs-5 fw-medium">${{ number_format($product->regular_price, 2) }}</span>
                         <span

@@ -362,26 +362,30 @@
                 }
             });
 
-            // 2. Dynamic Append Row
             addBtn.addEventListener('click', function() {
-                const firstRow = document.querySelector('.attribute-row');
+                // ១. ត្រូវចាប់យកជួរទីមួយជាមុនសិន ទើបអាច Clone វាបាន
+                const firstRow = container.querySelector('.attribute-row');
                 const clone = firstRow.cloneNode(true);
 
-                // កំណត់ Name attribute ថ្មីដោយប្រើ rowIndex
+                // ២. ប្រើ rowIndex ជំនួស currentRows ដើម្បីកុំឱ្យ name ជាន់គ្នា
                 clone.querySelector('.attribute-selector').name = `attributes[${rowIndex}][attribute_id]`;
                 clone.querySelector('.value-selector').name = `attributes[${rowIndex}][attribute_value_id]`;
                 clone.querySelector('input[type="number"]').name =
                     `attributes[${rowIndex}][additional_price]`;
 
-                // Reset values សម្រាប់ជួរថ្មី
+                // ៣. Reset values សម្រាប់ជួរថ្មី
                 clone.querySelector('.attribute-selector').value = '';
                 clone.querySelector('.value-selector').innerHTML =
                     '<option value="">-- Select Value --</option>';
                 clone.querySelector('.value-selector').disabled = true;
                 clone.querySelector('input[type="number"]').value = '';
+                clone.querySelector('.remove-row-btn').classList.remove('d-none');
 
                 container.appendChild(clone);
+
+                // ៤. បង្កើនលេខរៀង
                 rowIndex++;
+
                 updateRemoveButtons();
             });
 
@@ -400,7 +404,7 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Oops...',
-                    text: '{{ $errors->first() }}', // បង្ហាញកំហុសដំបូង
+                    text: '{{ $errors->first() }}',
                 }); <
             />
         @endif

@@ -23,6 +23,50 @@
         </a>
     </div>
 
+    {{-- បន្ថែមផ្នែក Filter នៅទីនេះ --}}
+    <div class="card border-0 custom-shadow rounded-4 bg-white mb-4 animate-fade-up" style="animation-delay: 0.05s;">
+        <div class="card-body p-3 p-md-4">
+            <form action="{{ url()->current() }}" method="GET" class="row g-3 align-items-end">
+                <div class="col-12 col-sm-4 col-md-3">
+                    <label class="fw-bold small text-secondary mb-2 letter-spacing-1 text-uppercase">Filter by Year</label>
+                    <select name="year" class="form-select border-0 bg-light rounded-3 shadow-sm py-2">
+                        <option value="2026" {{ request('year', date('Y')) == '2026' ? 'selected' : '' }}>2026</option>
+                        <option value="2025" {{ request('year') == '2025' ? 'selected' : '' }}>2025</option>
+                        <option value="2024" {{ request('year') == '2024' ? 'selected' : '' }}>2024</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-sm-4 col-md-3">
+                    <label class="fw-bold small text-secondary mb-2 letter-spacing-1 text-uppercase">Filter by Month</label>
+                    <select name="month" class="form-select border-0 bg-light rounded-3 shadow-sm py-2">
+                        <option value="">All Months</option>
+                        @for ($i = 1; $i <= 12; $i++)
+                            <option value="{{ $i }}" {{ request('month') == $i ? 'selected' : '' }}>
+                                {{ date('F', mktime(0, 0, 0, $i, 1)) }}
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+
+                <div class="col-12 col-sm-4 col-md-auto d-flex gap-2">
+                    <button type="submit"
+                        class="btn btn-primary px-4 py-2 rounded-3 shadow-sm d-flex align-items-center transition-all hover-lift">
+                        <i data-feather="filter" class="me-2 icon-sm"></i> Apply
+                    </button>
+
+                    @if (request()->has('year') || request()->has('month'))
+                        <a href="{{ url()->current() }}"
+                            class="btn btn-light px-3 py-2 rounded-3 shadow-sm text-danger d-flex align-items-center transition-all hover-lift"
+                            title="Clear Filters">
+                            <i data-feather="x" class="icon-sm"></i>
+                        </a>
+                    @endif
+                </div>
+            </form>
+        </div>
+    </div>
+    {{-- បញ្ចប់ផ្នែក Filter --}}
+
     <div class="row g-4 mb-5">
         <div class="col-12 col-sm-6 col-lg-4 animate-fade-up" style="animation-delay: 0.1s;">
             <div
@@ -41,7 +85,7 @@
                             class="badge bg-success-soft text-success rounded-pill px-2 py-1 d-flex align-items-center me-2">
                             <i data-feather="check-circle" class="icon-xs me-1"></i> Verified
                         </span>
-                        <span class="text-muted small">Lifetime revenue</span>
+                        <span class="text-muted small">Revenue for selected period</span>
                     </div>
                 </div>
                 <div class="position-absolute bottom-0 start-0 w-100 bg-success" style="height: 3px; opacity: 0.8;"></div>
@@ -107,7 +151,7 @@
                 </div>
                 <div>
                     <h5 class="card-title mb-0 fw-bold text-dark">Monthly Breakdown</h5>
-                    <span class="text-muted small">Detailed sales overview for {{ date('Y') }}</span>
+                    <span class="text-muted small">Detailed sales overview for {{ request('year', date('Y')) }}</span>
                 </div>
             </div>
         </div>
@@ -128,7 +172,7 @@
                                 <div class="d-flex align-items-center">
                                     <div class="calendar-badge me-3 text-center shadow-sm">
                                         <span class="d-block text-white bg-primary small fw-bold py-1 rounded-top"
-                                            style="font-size: 0.7rem;">{{ date('Y') }}</span>
+                                            style="font-size: 0.7rem;">{{ request('year', date('Y')) }}</span>
                                         <span
                                             class="d-block fw-bolder text-dark bg-white py-1 rounded-bottom">{{ \Carbon\Carbon::create()->month($sale->month)->format('M') }}</span>
                                     </div>
@@ -160,9 +204,9 @@
                                         <i data-feather="inbox" class="text-secondary"
                                             style="width: 40px; height: 40px;"></i>
                                     </div>
-                                    <h5 class="fw-bold text-dark mb-1">No Sales Data Yet</h5>
-                                    <p class="small mb-0">Once you start making sales this year, the breakdown will appear
-                                        here.</p>
+                                    <h5 class="fw-bold text-dark mb-1">No Sales Data Found</h5>
+                                    <p class="small mb-0">Try adjusting your filters or check back later once sales are
+                                        made.</p>
                                 </div>
                             </td>
                         </tr>

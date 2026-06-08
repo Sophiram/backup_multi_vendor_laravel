@@ -35,7 +35,9 @@
                         <thead class="table-light text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.05em;">
                             <tr>
                                 <th class="ps-4 py-3 text-muted fw-bold" style="width: 80px;">#</th>
+                                <th class="py-3 text-muted fw-bold" style="width: 100px;">Image</th>
                                 <th class="py-3 text-muted fw-bold">Category Name</th>
+                                <th class="py-3 text-muted fw-bold" style="width: 120px;">Status</th>
                                 <th class="pe-4 py-3 text-end text-muted fw-bold" style="width: 150px;">Action</th>
                             </tr>
                         </thead>
@@ -43,16 +45,42 @@
                             @forelse ($categories as $index => $cat)
                                 <tr>
                                     <td class="ps-4 font-monospace text-secondary">{{ $index + 1 }}</td>
+
+                                    <td>
+                                        @if ($cat->image)
+                                            <img src="{{ asset($cat->image) }}" alt="{{ $cat->category_name }}"
+                                                class="rounded-3 border shadow-sm shadow-sm"
+                                                style="width: 45px; height: 45px; object-fit: cover;">
+                                        @else
+                                            <div class="bg-light rounded-3 border d-flex align-items-center justify-content-center"
+                                                style="width: 45px; height: 45px;">
+                                                <i data-lucide="image" class="text-muted"
+                                                    style="width: 18px; height: 18px;"></i>
+                                            </div>
+                                        @endif
+                                    </td>
+
                                     <td>
                                         <span class="fw-semibold text-dark">{{ $cat->category_name }}</span>
                                     </td>
+
+                                    <td>
+                                        @if ($cat->status == 'active')
+                                            <span
+                                                class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-2">Active</span>
+                                        @else
+                                            <span
+                                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 rounded-2">Inactive</span>
+                                        @endif
+                                    </td>
+
                                     <td class="pe-4 text-end">
                                         <div class="d-flex justify-content-end gap-2">
                                             <button type="button"
                                                 class="btn btn-sm btn-light border text-primary rounded-2 p-2 d-inline-flex align-items-center"
                                                 data-bs-toggle="modal" data-bs-target="#editCategoryModal"
                                                 data-id="{{ $cat->id }}" data-name="{{ $cat->category_name }}"
-                                                title="Edit">
+                                                data-status="{{ $cat->status }}" title="Edit">
                                                 <i data-lucide="edit-3" style="width: 15px; height: 15px;"></i>
                                             </button>
                                             <form action="{{ route('delete.cat', $cat->id) }}" method="POST"
@@ -70,7 +98,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-center py-5 text-muted">
+                                    <td colspan="5" class="text-center py-5 text-muted">
                                         <i data-lucide="inbox" class="d-block mx-auto mb-2 text-secondary"
                                             style="width: 32px; height: 32px;"></i>
                                         No categories found.
@@ -88,7 +116,7 @@
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 rounded-4 shadow">
-                <form id="editCategoryForm" method="POST">
+                <form id="editCategoryForm" method="POST" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
                     <div class="modal-header border-bottom px-4 py-3">
@@ -99,11 +127,29 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
-                        <div class="mb-1">
+                        <div class="mb-4">
                             <label for="edit_category_name"
                                 class="form-label fw-semibold small text-secondary mb-2">Category Name</label>
                             <input type="text" name="category_name" id="edit_category_name"
                                 class="form-control rounded-3" placeholder="Enter category name" required>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="edit_category_image"
+                                class="form-label fw-semibold small text-secondary mb-2">Category Image</label>
+                            <input type="file" name="image" id="edit_category_image" class="form-control rounded-3"
+                                accept="image/*">
+                            <div class="form-text text-muted small">Leave blank if you don't want to change the current
+                                image.</div>
+                        </div>
+
+                        <div class="mb-1">
+                            <label for="edit_category_status"
+                                class="form-label fw-semibold small text-secondary mb-2">Status</label>
+                            <select name="status" id="edit_category_status" class="form-select rounded-3" required>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-header border-0 d-flex justify-content-end gap-2 px-4 pb-4 pt-0">
@@ -156,13 +202,14 @@
             });
         @endif
 
-        // Logic ពេលបើក Modal ផ្ទេរទិន្នន័យចូល Input
+        // Logic ពេលបើក Modal ផ្ទេរទិន្នន័យចាស់ចូល Input នីមួយៗ
         const editModal = document.getElementById('editCategoryModal');
         if (editModal) {
             editModal.addEventListener('show.bs.modal', function(event) {
                 const button = event.relatedTarget;
                 const id = button.getAttribute('data-id');
                 const name = button.getAttribute('data-name');
+                const status = button.getAttribute('data-status'); // 💡 ចាប់យកតម្លៃ Status ចាស់ពីប៊ូតុង
 
                 const form = document.getElementById('editCategoryForm');
                 form.action = "{{ route('update.cat', ':id') }}".replace(':id', id);
@@ -170,7 +217,14 @@
                 const input = document.getElementById('edit_category_name');
                 input.value = name;
 
-                // Re-trigger lucide icons inside modal if needed
+                const statusSelect = document.getElementById(
+                    'edit_category_status'); // 💡 បញ្ចូលតម្លៃទៅឱ្យ Select Option
+                statusSelect.value = status;
+
+                // សម្អាត Input file រាល់ពេលបើក Modal ថ្មី
+                document.getElementById('edit_category_image').value = '';
+
+                // Re-trigger lucide icons inside modal
                 setTimeout(() => {
                     lucide.createIcons();
                 }, 150);

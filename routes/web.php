@@ -184,7 +184,7 @@ Route::middleware(['auth', 'verified', 'rolemanager:admin'])->group(function () 
             Route::put('/manage/stores/{id}', 'updateStore')->name('admin.manage.stores.update');
 
            Route::get('/manage/vendors', 'manage_vendor')->name('admin.manage.vendors');
-            Route::put('/manage/vendors/{id}', [VendorController::class, 'update'])->name('admin.manage.vendors.update');
+            Route::put('/manage/vendors/{id}', [VendorController::class, 'updateVendor'])->name('admin.manage.vendors.update');
         });
         Route::controller(OrderManagementController::class)->group(function () {
 

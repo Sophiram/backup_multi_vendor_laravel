@@ -15,4 +15,9 @@ class PayoutRequest extends Model
      public function user() {
         return $this->belongsTo(User::class);
     }
+    public function vendor()
+    {
+        // ភ្ជាប់ទៅកាន់ Model Vendor តាមរយៈ vendor_id
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
 }

@@ -5,127 +5,140 @@
 @endsection
 
 @section('vendor_layout')
-    <div class="row mb-4">
-        <div class="col-12">
-            <h3 class="fw-bold text-dark mb-1">Order History</h3>
-            <p class="text-muted small">Manage and track all customer orders placed from your stores.</p>
+    <!-- Page Header -->
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8 col-12 mb-3 mb-md-0">
+            <h3 class="fw-bolder text-dark mb-1 d-flex align-items-center gap-2">
+                <i data-feather="shopping-bag" style="width: 24px; height: 24px;" class="text-primary"></i>
+                Order History
+            </h3>
+            <p class="text-muted small mb-0">Manage and track all customer orders placed across your stores.</p>
         </div>
     </div>
 
+    <!-- Main Content Card -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+
+                <!-- Card Header & Search -->
                 <div
-                    class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap g-2">
-                    <h5 class="card-title mb-0 fw-bold text-dark small text-uppercase tracking-wider">
+                    class="card-header bg-white border-bottom py-4 d-flex align-items-center justify-content-between flex-column flex-md-row gap-3">
+                    <h5 class="card-title mb-0 fw-bold text-dark fs-6 text-uppercase" style="letter-spacing: 0.5px;">
                         Recent Orders
                     </h5>
-                    <div class="col-auto">
-                        <form action="{{ route('vendor.orders.history') }}" method="GET">
-                            <input type="text" name="search" class="form-control form-control-sm shadow-none"
-                                value="{{ request('search') }}" placeholder="Search Order ID...">
+                    <div class="w-100" style="max-width: 300px;">
+                        <form action="{{ route('vendor.orders.history') }}" method="GET" class="m-0">
+                            <div class="input-group input-group-sm shadow-sm rounded-3 overflow-hidden">
+                                <span class="input-group-text bg-light border-0 text-muted px-3">
+                                    <i data-feather="search" style="width: 16px; height: 16px;"></i>
+                                </span>
+                                <input type="text" name="search" class="form-control border-0 bg-light py-2 shadow-none"
+                                    value="{{ request('search') }}" placeholder="Search Order ID...">
+                            </div>
                         </form>
                     </div>
                 </div>
 
+                <!-- Responsive Table -->
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0 text-nowrap">
-                            <thead class="table-light text-secondary small text-uppercase font-weight-bold">
+                        <table class="table table-hover align-middle mb-0 text-nowrap custom-table">
+                            <thead class="bg-light text-muted small text-uppercase" style="letter-spacing: 0.5px;">
                                 <tr>
-                                    <th class="ps-4 py-3" style="width: 120px;">Order ID</th>
-                                    <th class="py-3">Customer</th>
-                                    <th class="py-3">Store Name</th>
-                                    <th class="py-3">Shipping Info</th>
-                                    <th class="py-3">Your Sales</th>
-                                    <th class="py-3">Net Earnings</th>
-                                    <th class="py-3">Status</th>
-                                    <th class="py-3">Date Ordered</th>
-                                    <th class="pe-4 py-3 text-end" style="width: 140px;">Action</th>
+                                    <th class="ps-4 py-3 border-bottom-0 fw-semibold">Order ID</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold">Customer</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold">Store</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold">Shipping</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold text-end">Sales</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold text-end">Net Earnings</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold text-center">Status</th>
+                                    <th class="py-3 border-bottom-0 fw-semibold">Date</th>
+                                    <th class="pe-4 py-3 border-bottom-0 fw-semibold text-end">Action</th>
                                 </tr>
                             </thead>
-                            <tbody class="small text-dark">
+                            <tbody class="small border-top-0">
                                 @forelse ($orders as $order)
                                     @php
-                                        $vendorSales = $order->items->sum(function ($item) {
-                                            return $item->price * $item->quantity;
-                                        });
+                                        $vendorSales = $order->items->sum(fn($item) => $item->price * $item->quantity);
                                         $vendorNet = $order->items->sum('vendor_net_amount');
+
+                                        $stores = $order->items
+                                            ->map(fn($item) => $item->product->store->store_name ?? null)
+                                            ->filter()
+                                            ->unique();
                                     @endphp
                                     <tr>
-                                        <td class="ps-4 fw-bold text-primary">#{{ $order->order_number }}</td>
-                                        <td>
-                                            <div class="fw-semibold">{{ $order->user->name ?? 'Unknown Customer' }}</div>
-                                            <div class="text-muted" style="font-size: 11px;">{{ $order->user->email ?? '' }}
+                                        <td class="ps-4 py-3">
+                                            <span class="fw-bold text-primary bg-soft-primary px-2 py-1 rounded">
+                                                #{{ $order->order_number }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3">
+                                            <div class="d-flex flex-column">
+                                                <span
+                                                    class="fw-bold text-dark">{{ $order->user->name ?? 'Unknown Customer' }}</span>
+                                                <span class="text-muted"
+                                                    style="font-size: 12px;">{{ $order->user->email ?? 'No email provided' }}</span>
                                             </div>
                                         </td>
-                                        <td>
-                                            @php
-                                                $stores = $order->items
-                                                    ->map(fn($item) => $item->product->store->store_name ?? null)
-                                                    ->filter()
-                                                    ->unique();
-                                            @endphp
+                                        <td class="py-3">
                                             <div class="d-flex flex-wrap gap-1"
-                                                style="max-width: 200px; white-space: normal;">
-                                                @forelse($stores as $storeName)
-                                                    <span
-                                                        class="badge bg-light text-dark border fw-medium px-2 py-1">{{ $storeName }}</span>
-                                                @empty
-                                                    <span
-                                                        class="badge bg-light text-muted border fw-medium px-2 py-1">N/A</span>
-                                                @endforelse
+                                                style="max-width: 180px; white-space: normal;">
+                                                @foreach ($stores as $storeName)
+                                                    <span class="badge bg-light text-dark border fw-medium text-truncate"
+                                                        style="max-width: 100%;" title="{{ $storeName }}">
+                                                        {{ $storeName }}
+                                                    </span>
+                                                @endforeach
                                             </div>
                                         </td>
-                                        <td>
+                                        <td class="py-3">
                                             @if ($order->shipping)
-                                                <div class="small">
-                                                    <strong>{{ $order->shipping->shipping_company }}</strong><br>
+                                                <div class="d-flex flex-column">
                                                     <span
-                                                        class="text-primary">{{ $order->shipping->tracking_number }}</span>
+                                                        class="fw-semibold text-dark">{{ $order->shipping->shipping_company }}</span>
+                                                    <span class="text-primary" style="font-size: 12px;">
+                                                        <i data-feather="package" style="width: 12px; height: 12px;"
+                                                            class="me-1"></i>{{ $order->shipping->tracking_number }}
+                                                    </span>
                                                 </div>
                                             @else
-                                                <span class="text-muted small">Not Assigned</span>
+                                                <span class="badge bg-light text-muted border">Unshipped</span>
                                             @endif
                                         </td>
-                                        <td class="fw-bold text-secondary">${{ number_format($vendorSales, 2) }}</td>
-                                        <td class="fw-bold text-success">${{ number_format($vendorNet, 2) }}</td>
-                                        <td>
-                                            @if ($order->status == 'completed')
-                                                <span
-                                                    class="badge bg-soft-success text-success border border-success-subtle px-2 py-1 rounded-pill">Completed</span>
-                                            @elseif($order->status == 'pending')
-                                                <span
-                                                    class="badge bg-soft-warning text-warning border border-warning-subtle px-2 py-1 rounded-pill">Pending</span>
-                                            @elseif($order->status == 'processing')
-                                                <span
-                                                    class="badge bg-soft-info text-info border border-info-subtle px-2 py-1 rounded-pill">Processing</span>
-                                            @elseif($order->status == 'shipped')
-                                                <span
-                                                    class="badge bg-soft-primary text-primary border border-primary-subtle px-2 py-1 rounded-pill">Shipped</span>
-                                            @else
-                                                <span
-                                                    class="badge bg-soft-danger text-danger border border-danger-subtle px-2 py-1 rounded-pill">Cancelled</span>
-                                            @endif
+                                        <td class="py-3 text-end fw-bold text-dark font-monospace">
+                                            ${{ number_format($vendorSales, 2) }}
                                         </td>
-                                        <td class="text-muted">
-                                            {{ $order->created_at ? $order->created_at->format('M d, Y') : 'N/A' }}</td>
-                                        <!-- ជំនួសកន្លែង Action នេះ -->
-                                        <td class="pe-4 text-end">
+                                        <td class="py-3 text-end fw-bold text-success font-monospace">
+                                            ${{ number_format($vendorNet, 2) }}
+                                        </td>
+                                        <td class="py-3 text-center">
+                                            <span
+                                                class="badge rounded-pill fw-medium px-3 py-2 w-100 status-badge-{{ strtolower($order->status) }}">
+                                                {{ ucfirst($order->status) }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 text-muted fw-medium">
+                                            {{ $order->created_at ? $order->created_at->format('d M, Y') : 'N/A' }}
+                                        </td>
+                                        <td class="pe-4 py-3 text-end">
                                             <div class="d-flex justify-content-end align-items-center gap-2">
                                                 <a href="{{ route('vendor.ordershow', $order->id) }}"
-                                                    class="btn btn-sm btn-light border shadow-none d-flex align-items-center justify-content-center"
-                                                    title="View Details" style="width: 32px; height: 32px;">
-                                                    <i class="align-middle text-secondary" data-feather="eye"
-                                                        style="width: 15px; height: 15px;"></i>
+                                                    class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center p-2 transition-all"
+                                                    title="View Details" style="border-radius: 8px;">
+                                                    <i data-feather="eye" style="width: 16px; height: 16px;"></i>
                                                 </a>
 
                                                 <form action="{{ route('vendor.orders.updateStatus', $order->id) }}"
                                                     method="POST" class="m-0">
                                                     @csrf
-                                                    <select name="status" class="form-select form-select-sm shadow-none"
-                                                        onchange="handleStatusChange(this, '{{ $order->id }}')"
-                                                        style="width: 120px;">
+                                                    <select name="status"
+                                                        class="form-select form-select-sm shadow-none fw-medium border-secondary-subtle"
+                                                        onchange="this.form.submit()"
+                                                        style="border-radius: 8px; cursor: pointer; min-width: 115px;"
+                                                        {{ in_array(strtolower($order->status), ['completed', 'cancelled']) ? 'disabled' : '' }}>
+
                                                         <option value="pending"
                                                             {{ $order->status == 'pending' ? 'selected' : '' }}>Pending
                                                         </option>
@@ -133,8 +146,8 @@
                                                             {{ $order->status == 'processing' ? 'selected' : '' }}>
                                                             Processing</option>
                                                         <option value="shipped"
-                                                            {{ $order->status == 'shipped' ? 'selected' : '' }}
-                                                            {{ $order->shipping ? 'disabled' : '' }}>Shipped</option>
+                                                            {{ $order->status == 'shipped' ? 'selected' : '' }}>Shipped
+                                                        </option>
                                                         <option value="completed"
                                                             {{ $order->status == 'completed' ? 'selected' : '' }}>Completed
                                                         </option>
@@ -143,91 +156,37 @@
                                                         </option>
                                                     </select>
                                                 </form>
-
-                                                <div class="modal fade" id="shipModal{{ $order->id }}" tabindex="-1">
-                                                    <div class="modal-dialog">
-                                                        <form
-                                                            action="{{ route('vendor.orders.updateStatus', $order->id) }}"
-                                                            method="POST" class="modal-content">
-                                                            @csrf
-                                                            <input type="hidden" name="status" value="shipped">
-                                                            <div class="modal-header">
-                                                                <h5 class="modal-title">Shipping Details</h5>
-                                                            </div>
-                                                            <div class="modal-body">
-                                                                <select name="shipping_company_id" class="form-select"
-                                                                    required
-                                                                    onchange="updateShippingCost(this, '{{ $order->id }}')">
-                                                                    <option value="">-- Select Shipping Company --
-                                                                    </option>
-                                                                    @foreach ($shippingCompanies as $company)
-                                                                        <option value="{{ $company->id }}">
-                                                                            {{ $company->name }}
-                                                                            (${{ number_format($company->shipping_fee, 2) }})
-                                                                        </option>
-                                                                    @endforeach
-                                                                </select>
-
-                                                                <!-- បន្ថែម onclick ឱ្យបញ្ជូន orderId ចូល -->
-                                                                <input name="tracking_number"
-                                                                    id="tracking_input_{{ $order->id }}"
-                                                                    class="form-control mt-2" placeholder="Tracking Number">
-                                                                <button type="button"
-                                                                    class="btn btn-sm btn-outline-primary"
-                                                                    onclick="generateTracking('{{ $order->id }}')">Generate
-                                                                    Auto</button>
-
-
-                                                                <input type="number" name="shipping_cost"
-                                                                    class="form-control mt-2" placeholder="Shipping Cost"
-                                                                    step="0.01">
-                                                                <textarea name="notes" class="form-control mt-2" placeholder="Notes..."></textarea>
-                                                            </div>
-                                                            <div class="modal-footer">
-                                                                <button type="submit" class="btn btn-success">Confirm
-                                                                    Shipping</button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
-
-
-
                                             </div>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <!-- 🟢 កែតម្រូវត្រង់នេះទៅជា 9 ដើម្បីឱ្យត្រូវនឹងជួរឈរសរុប -->
-                                        <td colspan="9" class="text-center py-5 text-muted">
-                                            <i class="align-middle d-block mb-2 fs-3 text-secondary"
-                                                data-feather="inbox"></i>
-                                            No orders found yet.
+                                        <td colspan="9" class="text-center py-5">
+                                            <div
+                                                class="d-flex flex-column align-items-center justify-content-center opacity-50">
+                                                <i data-feather="inbox" style="width: 48px; height: 48px;"
+                                                    class="mb-3 text-muted"></i>
+                                                <p class="text-muted fw-medium fs-6 mb-0">No orders found yet.</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
-
-
-
                     </div>
                 </div>
 
-                <div class="card-footer bg-white border-top py-3">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap g-2 small text-muted">
-                        <div>
-                            @if (method_exists($orders, 'firstItem'))
-                                Showing {{ $orders->firstItem() ?? 0 }} to {{ $orders->lastItem() ?? 0 }} of
-                                {{ $orders->total() ?? 0 }} entries
-                            @else
-                                Showing {{ $orders->count() }} entries
-                            @endif
+                <!-- Pagination Footer -->
+                <div class="card-footer bg-white border-top py-3 px-4">
+                    <div
+                        class="d-flex align-items-center justify-content-between flex-column flex-md-row gap-3 small text-muted">
+                        <div class="fw-medium">
+                            Showing <span class="text-dark fw-bold">{{ $orders->firstItem() ?? 0 }}</span>
+                            to <span class="text-dark fw-bold">{{ $orders->lastItem() ?? 0 }}</span>
+                            of <span class="text-dark fw-bold">{{ $orders->total() ?? 0 }}</span> entries
                         </div>
-                        <div>
-                            @if (method_exists($orders, 'links'))
-                                {{ $orders->appends(request()->query())->links('pagination::bootstrap-5') }}
-                            @endif
+                        <div class="pagination-wrapper">
+                            {{ $orders->appends(request()->query())->links('pagination::bootstrap-5') }}
                         </div>
                     </div>
                 </div>
@@ -235,118 +194,110 @@
         </div>
     </div>
 
+    <!-- Custom Styles -->
     <style>
-        .bg-soft-success {
-            background-color: #e8f5e9 !important;
+        /* Table Enhancements */
+        .custom-table tbody tr {
+            transition: all 0.2s ease-in-out;
         }
 
-        .bg-soft-warning {
-            background-color: #fff3e0 !important;
+        /* .custom-table tbody tr:hover {
+                    background-color: #f8f9fa;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+                } */
+
+        /* Status Badges */
+        .status-badge-completed {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
         }
 
-        .bg-soft-info {
-            background-color: #e0f7fa !important;
+        .status-badge-pending {
+            background-color: #fff3e0;
+            color: #ef6c00;
+            border: 1px solid #ffe0b2;
         }
 
+        .status-badge-processing {
+            background-color: #e0f7fa;
+            color: #00838f;
+            border: 1px solid #b2ebf2;
+        }
+
+        .status-badge-shipped {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+
+        .status-badge-cancelled {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        /* Generic Soft Backgrounds */
         .bg-soft-primary {
             background-color: #e3f2fd !important;
         }
 
-
-        .bg-soft-danger {
-            background-color: #ffebee !important;
-        }
-
-        .text-success {
-            color: #2e7d32 !important;
-        }
-
-        .text-warning {
-            color: #ef6c00 !important;
-        }
-
-        .text-info {
-            color: #00838f !important;
-        }
-
-        .text-primary {
-            color: #0d47a1 !important;
-        }
-
-        .text-danger {
-            color: #c62828 !important;
-        }
-
-        .pagination {
+        /* Pagination Reset for Bootstrap 5 */
+        .pagination-wrapper .pagination {
             margin-bottom: 0;
-            font-size: 13px;
+        }
+
+        .pagination-wrapper .page-link {
+            border-radius: 6px;
+            margin: 0 2px;
+            border: 1px solid #dee2e6;
+            color: #495057;
+        }
+
+        .pagination-wrapper .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: #fff;
         }
     </style>
 
+    <!-- Scripts -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Re-initialize feather icons if they aren't globally bound
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
+
+            // SweetAlert2 Notifications
             @if (session('success'))
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
                     text: '{{ session('success') }}',
                     confirmButtonColor: '#0d6efd',
-                    timer: 3000
+                    customClass: {
+                        popup: 'rounded-4'
+                    },
+                    timer: 3000,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false
                 });
             @endif
+
             @if (session('error'))
                 Swal.fire({
                     icon: 'error',
                     title: 'Oops!',
                     text: '{{ session('error') }}',
                     confirmButtonColor: '#dc3545',
+                    customClass: {
+                        popup: 'rounded-4'
+                    }
                 });
             @endif
         });
-
-        function showShipModal(orderId) {
-            var myModal = new bootstrap.Modal(document.getElementById('shipModal' + orderId));
-            myModal.show();
-        }
-
-        function handleStatusChange(selectElement, orderId) {
-            if (selectElement.value === 'shipped') {
-                var myModal = new bootstrap.Modal(document.getElementById('shipModal' + orderId));
-                myModal.show();
-            } else {
-                selectElement.form.submit();
-            }
-        }
-
-        // បន្ថែមមុខងារនេះ ដើម្បី reset select វិញ បើអ្នកប្រើបិទ Modal
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('hidden.bs.modal', function() {
-                // រក select ដែលទាក់ទងនឹង order ID នេះ ហើយកំណត់វាត្រឡប់ទៅតម្លៃដើម
-                location.reload(); // ងាយស្រួលបំផុតគឺ refresh ដើម្បីឱ្យ select ត្រឡប់ទៅ status ដើម
-            });
-        });
-
-        function generateTracking(orderId) {
-            const randomCode = 'TRK-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-            // ជ្រើសរើស input តាម ID ឱ្យចំ order នោះ
-            document.getElementById('tracking_input_' + orderId).value = randomCode;
-        }
-        const shippingFees = {
-            @foreach ($shippingCompanies as $company)
-                "{{ $company->id }}": {{ $company->shipping_fee }},
-            @endforeach
-        };
-
-        function updateShippingCost(selectElement, orderId) {
-            const costInput = document.querySelector(`#shipModal${orderId} input[name="shipping_cost"]`);
-            const selectedId = selectElement.value;
-
-            // បញ្ចូលតម្លៃពី Object ទៅក្នុង Input
-            if (shippingFees[selectedId]) {
-                costInput.value = shippingFees[selectedId].toFixed(2);
-            } else {
-                costInput.value = '';
-            }
-        }
     </script>
 @endsection

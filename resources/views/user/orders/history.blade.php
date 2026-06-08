@@ -26,20 +26,23 @@
                                     style="font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">
                                     <th class="ps-4 py-3 border-0">Order ID</th>
                                     <th class="py-3 border-0">Date</th>
-                                    <th class="py-3 border-0">Status</th>
+                                    <th class="py-3 border-0">Order Status</th>
+                                    <th class="py-3 border-0">Payment Status</th>
                                     <th class="py-3 border-0">Total</th>
                                     <th class="pe-4 py-3 border-0 text-end">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($orders as $order)
-                                    <tr class="align-middle transition-all" style="border-bottom: 1px solid #f1f5f9;">
+                                    <tr class="align-middle transition-all" style="border-bottom: 1px solid #f1f5f9;"
+                                        id="order-row-{{ $order->id }}">
                                         <td class="ps-4 py-3 fw-bold text-dark" style="font-size: 14.5px;">
                                             #{{ $order->order_number ?? $order->id }}
                                         </td>
                                         <td class="text-secondary" style="font-size: 14px;">
                                             {{ $order->created_at ? $order->created_at->format('M d, Y') : 'N/A' }}
                                         </td>
+
                                         <td>
                                             @if (in_array(strtolower($order->status), ['completed', 'complete']))
                                                 <span
@@ -60,12 +63,32 @@
                                                     class="badge rounded-pill fw-semibold bg-warning-subtle text-warning border border-warning-subtle px-3 py-2">
                                                     <span
                                                         class="d-inline-block rounded-circle bg-warning me-1 status-dot"></span>
-                                                    Pending
+                                                    {{ ucfirst($order->status) }}
                                                 </span>
                                             @endif
                                         </td>
+
+                                        <td>
+                                            @if (in_array(strtolower($order->payment->status), ['paid', 'completed', 'success']))
+                                                <span
+                                                    class="badge rounded-pill fw-semibold bg-success-subtle text-success border border-success-subtle px-3 py-2 payment-status">
+                                                    <i data-lucide="check-circle" class="icon-xs me-1"></i> Paid
+                                                </span>
+                                            @elseif(strtolower($order->payment->status) == 'failed')
+                                                <span
+                                                    class="badge rounded-pill fw-semibold bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 payment-status">
+                                                    <i data-lucide="x-circle" class="icon-xs me-1"></i> Failed
+                                                </span>
+                                            @else
+                                                <span
+                                                    class="badge rounded-pill fw-semibold bg-warning-subtle text-warning border border-warning-subtle px-3 py-2 payment-status">
+                                                    <i data-lucide="clock" class="icon-xs me-1"></i> Pending
+                                                </span>
+                                            @endif
+                                        </td>
+
                                         <td class="fw-bold text-dark" style="font-size: 14.5px;">
-                                            ${{ number_format($order->total_amount ?? ($order->total_amount ?? 0), 2) }}
+                                            ${{ number_format($order->total_amount ?? 0, 2) }}
                                         </td>
 
                                         <td class="text-end pe-4">
@@ -76,7 +99,9 @@
                                                     <span class="d-none d-sm-inline ms-1">View</span>
                                                 </a>
 
-                                                @if (!in_array(strtolower($order->status), ['completed', 'complete', 'cancelled']))
+                                                @if (
+                                                    !in_array(strtolower($order->payment->status), ['paid', 'completed', 'success']) &&
+                                                        strtolower($order->status) !== 'cancelled')
                                                     <a href="{{ route('payment.qr', $order->id) }}"
                                                         class="btn btn-pay btn-sm px-3 d-inline-flex align-items-center justify-content-center">
                                                         <i data-lucide="qr-code" class="icon-sm"></i>
@@ -88,7 +113,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="text-center py-5 text-muted">
+                                        <td colspan="6" class="text-center py-5 text-muted">
                                             <div class="d-flex flex-column align-items-center justify-content-center py-4">
                                                 <div class="p-3 rounded-circle bg-light text-secondary mb-3">
                                                     <i data-lucide="package-search"
@@ -97,7 +122,6 @@
                                                 <h6 class="fw-bold text-dark mb-1">No Orders Found</h6>
                                                 <p class="small text-muted mb-3">You haven't placed any orders yet. Start
                                                     shopping now!</p>
-                                                <!-- បន្ថែមប៊ូតុង Shop Now -->
                                                 <a href="{{ route('home') }}" class="btn btn-primary px-4 shadow-sm"
                                                     style="border-radius: 8px;">
                                                     Start Shopping
@@ -172,6 +196,12 @@
             height: 16px;
         }
 
+        .icon-xs {
+            width: 14px;
+            height: 14px;
+            vertical-align: middle;
+        }
+
         .table-responsive::-webkit-scrollbar {
             height: 6px;
         }
@@ -181,7 +211,6 @@
             border-radius: 10px;
         }
 
-        /* Pagination Styling */
         .page-link {
             color: #4338ca !important;
             border: none !important;
@@ -200,7 +229,6 @@
     </style>
 
     <script>
-        // ធានាថា Lucide Icons ដំណើរការបានរលូន
         document.addEventListener("DOMContentLoaded", function() {
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();

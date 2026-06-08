@@ -117,28 +117,53 @@
                                 <h6 class="fw-bold text-dark mb-0">Update Settlement Status</h6>
                             </div>
 
-                            <form action="{{ route('admin.order.payment.update', $order->id) }}" method="POST"
-                                class="m-0">
-                                @csrf
-                                @method('PUT')
-                                <div class="input-group input-group-sm shadow-sm rounded-3 overflow-hidden border">
-                                    <select name="payment_status"
-                                        class="form-select border-0 bg-light-subtle font-monospace small fw-medium py-2"
-                                        required>
-                                        <option value="pending"
-                                            {{ $order->payment_status == 'pending' ? 'selected' : '' }}>Pending Protocol
-                                        </option>
-                                        <option value="paid" {{ $order->payment_status == 'paid' ? 'selected' : '' }}>
-                                            Paid / Settled</option>
-                                        <option value="failed" {{ $order->payment_status == 'failed' ? 'selected' : '' }}>
-                                            Failed / Voided</option>
-                                    </select>
-                                    <button type="submit"
-                                        class="btn btn-success fw-semibold px-3 border-0 d-inline-flex align-items-center gap-1">
-                                        <i data-lucide="refresh-cw" style="width: 13px; height: 13px;"></i> Update
-                                    </button>
+                            @php
+                                $currentPaymentStatus = $order->payment->status ?? 'pending';
+                            @endphp
+
+                            {{-- ត្រួតពិនិត្យលក្ខខណ្ឌ៖ បើស្ថានភាពជា paid នោះនឹងបង្ហាញតែ Badge ព័ត៌មានជាប់សោរ --}}
+                            @if (strtolower($currentPaymentStatus) === 'paid')
+                                <div
+                                    class="d-flex align-items-center justify-content-between p-2.5 bg-success-subtle text-success border border-success-subtle rounded-3 font-monospace small fw-semibold">
+                                    <span class="d-inline-flex align-items-center gap-1.5">
+                                        <i data-lucide="check-circle" style="width: 16px; height: 16px;"></i>
+                                        PAID / SETTLED
+                                    </span>
+                                    <span
+                                        class="text-uppercase text-muted small px-2 py-0.5 bg-white rounded border fw-bold"
+                                        style="font-size: 0.65rem;">LOCKED</span>
                                 </div>
-                            </form>
+                            @else
+                                <form action="{{ route('admin.order.payment.update', $order->id) }}" method="POST"
+                                    class="m-0">
+                                    @csrf
+                                    @method('PUT')
+                                    <div class="input-group input-group-sm shadow-sm rounded-3 overflow-hidden border">
+                                        <select name="payment_status"
+                                            class="form-select border-0 bg-light-subtle font-monospace small fw-medium py-2"
+                                            required>
+                                            <option value="pending"
+                                                {{ strtolower($currentPaymentStatus) === 'pending' ? 'selected' : '' }}>
+                                                Pending
+                                                Protocol
+                                            </option>
+                                            <option value="paid"
+                                                {{ strtolower($currentPaymentStatus) === 'paid' ? 'selected' : '' }}>
+                                                Paid / Settled</option>
+                                            <option value="failed"
+                                                {{ strtolower($currentPaymentStatus) === 'failed' ? 'selected' : '' }}>
+                                                Failed / Voided</option>
+                                            <option value="refunded"
+                                                {{ strtolower($currentPaymentStatus) === 'refunded' ? 'selected' : '' }}>
+                                                Refunded / Returned</option>
+                                        </select>
+                                        <button type="submit"
+                                            class="btn btn-success fw-semibold px-3 border-0 d-inline-flex align-items-center gap-1">
+                                            <i data-lucide="refresh-cw" style="width: 13px; height: 13px;"></i> Update
+                                        </button>
+                                    </div>
+                                </form>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -162,7 +187,7 @@
             }
         });
 
-        // Catch and process success operations response pipelines
+        // បង្ហាញផ្ទាំង Alert ពេលជោគជ័យ
         @if (session('success'))
             Swal.fire({
                 icon: 'success',
@@ -171,8 +196,21 @@
                 timer: 2500,
                 showConfirmButton: false,
                 position: 'center',
-                toast: false,
-                background: '#ffffff',
+                customClass: {
+                    popup: 'animated fadeInDown rounded-4 shadow'
+                }
+            });
+        @endif
+
+        // បង្ហាញផ្ទាំង Alert ពេលមានបញ្ហា ឬការហាមឃាត់
+        @if (session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Action Denied',
+                text: "{!! session('error') !!}",
+                timer: 3000,
+                showConfirmButton: true,
+                confirmButtonColor: '#ef4444',
                 customClass: {
                     popup: 'animated fadeInDown rounded-4 shadow'
                 }

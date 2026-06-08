@@ -35,8 +35,8 @@
                                 {{ $order->created_at ? $order->created_at->format('M d, Y - h:i A') : 'N/A' }}
                             </span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">Status:</span>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Order Status:</span>
                             <div>
                                 @if (in_array(strtolower($order->status), ['completed', 'complete']))
                                     <span
@@ -55,6 +55,29 @@
                                         class="badge rounded-pill fw-semibold bg-warning-subtle text-warning border border-warning-subtle px-3 py-1">
                                         <span class="d-inline-block rounded-circle bg-warning me-1 status-dot"></span>
                                         {{ ucfirst($order->status) }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Payment Status Added Here -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Payment Status:</span>
+                            <div>
+                                @if (in_array(strtolower($order->payment->status), ['paid', 'completed', 'success']))
+                                    <span
+                                        class="badge rounded-pill fw-semibold bg-success-subtle text-success border border-success-subtle px-3 py-1">
+                                        <i data-lucide="check-circle" class="icon-xs me-1"></i> Paid
+                                    </span>
+                                @elseif(strtolower($order->payment->status) == 'failed')
+                                    <span
+                                        class="badge rounded-pill fw-semibold bg-danger-subtle text-danger border border-danger-subtle px-3 py-1">
+                                        <i data-lucide="x-circle" class="icon-xs me-1"></i> Failed
+                                    </span>
+                                @else
+                                    <span
+                                        class="badge rounded-pill fw-semibold bg-warning-subtle text-warning border border-warning-subtle px-3 py-1">
+                                        <i data-lucide="clock" class="icon-xs me-1"></i> Pending
                                     </span>
                                 @endif
                             </div>
@@ -144,15 +167,27 @@
                         <p class="text-muted small mb-0 d-print-none">* Thank you for your business!</p>
                     </div>
 
-                    <div class="col-12 col-md-auto d-flex align-items-center gap-3">
-                        <a href="{{ route('receipt', ['order' => $order->id]) }}" class="btn btn-outline-primary">
-                            View Receipt
+                    <div class="col-12 col-md-auto d-flex flex-wrap align-items-center gap-3">
+                        <a href="{{ route('receipt', ['order' => $order->id]) }}"
+                            class="btn btn-outline-primary d-inline-flex align-items-center gap-2">
+                            <i data-lucide="receipt" class="icon-sm"></i> View Receipt
                         </a>
 
-                        <div class="rounded-3 bg-light p-3 d-flex align-items-center gap-3">
+                        <!-- Pay Now Button (លោតចេញតែពេលមិនទាន់បង់ប្រាក់) -->
+                        @if (
+                            !in_array(strtolower($order->payment->status), ['paid', 'completed', 'success']) &&
+                                strtolower($order->status) !== 'cancelled')
+                            <a href="{{ route('payment.qr', $order->id) }}"
+                                class="btn btn-success px-4 d-inline-flex align-items-center gap-2 shadow-sm"
+                                style="border-radius: 8px;">
+                                <i data-lucide="qr-code" class="icon-sm"></i> Pay Now
+                            </a>
+                        @endif
+
+                        <div class="rounded-3 bg-light p-3 d-flex align-items-center gap-3 ms-md-2 mt-3 mt-md-0">
                             <span class="text-secondary fw-semibold">Grand Total:</span>
                             <span class="fs-5 fw-bold text-primary">
-                                ${{ number_format($order->total_amount ?? ($order->total_amount ?? 0), 2) }}
+                                ${{ number_format($order->total_amount ?? 0, 2) }}
                             </span>
                         </div>
                     </div>
@@ -195,10 +230,16 @@
             background-color: #f8fafc !important;
         }
 
-        /* Status Dot */
+        /* Status Dot & Icons */
         .status-dot {
             width: 6px;
             height: 6px;
+            vertical-align: middle;
+        }
+
+        .icon-xs {
+            width: 14px;
+            height: 14px;
             vertical-align: middle;
         }
 

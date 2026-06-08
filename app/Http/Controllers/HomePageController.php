@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Store;
+use App\Models\Product;
+use App\Models\Category;
+use App\Models\Discount; // ✅ បានថែម Discount នៅទីនេះ
 use App\Models\GiftCollection;
 use App\Models\HomePageSetting;
-use App\Models\Store;
 use Illuminate\Http\Request;
 
 class HomePageController extends Controller
@@ -26,9 +29,10 @@ class HomePageController extends Controller
 
     public function showCategoryProducts($category_name)
     {
-        $category = \App\Models\Category::where('category_name', $category_name)->firstOrFail();
+        $category = Category::where('category_name', $category_name)->firstOrFail();
 
-        $products = \App\Models\Product::where('category_id', $category->id)->get();
+        // $products = \App\Models\Product::where('category_id', $category->id)->get();
+        $products = Product::with('images')->where('category_id', $category->id)->get();
 
         // 1. ថែមទិន្នន័យ HomePageSetting ដូចទំព័រ Index ដែរ
         $homepagesetting = \App\Models\HomePageSetting::with([
@@ -37,33 +41,23 @@ class HomePageController extends Controller
             'featuredProduct2.images'
         ])->first();
 
-        // 2. បោះ variable $homepagesetting ទៅកាន់ view តាមរយៈ compact
         return view('home.category', compact('category', 'products', 'homepagesetting'));
     }
     public function showDiscounts()
     {
-        // ទាញយក Discounts ទាំងអស់ដែលបាន Publish (status = 1)
-        // លោកអ្នកអាចថែមលក្ខខណ្ឌ end_date >= ឥឡូវនេះ ឬ លក្ខខណ្ឌផ្សេងៗតាមការចង់បាន
-        $discounts = \App\Models\Discount::where('status', 1)
+        $discounts = Discount::where('status', 1)
             ->latest()
             ->get();
 
-        // បោះ Variable $discounts ទៅកាន់ទំព័រ View (ឧទាហរណ៍៖ home.discount)
         return view('home.discount', compact('discounts'));
     }
 
     public function showGiftCollections()
     {
-        // ទាញយក Gift Sets ណាដែលសកម្ម (status = true)
         $giftCollections = GiftCollection::where('status', true)->latest()->get();
-
-        // សន្មតថាអ្នកទុក File ជំហានមុននៅ resources/views/home/gift-collection.blade.php
         return view('home.gift-collection', compact('giftCollections'));
     }
 
-    /**
-     * 🔍 ២. បង្ហាញព័ត៌មានលម្អិតនៃ Gift Box នីមួយៗ (View Detail Page)
-     */
     public function showGiftDetail($id)
     {
         $gift = GiftCollection::where('status', true)->findOrFail($id);
@@ -73,7 +67,6 @@ class HomePageController extends Controller
 
     public function showStores()
     {
-        // ទាញយកហាងណាដែលបាន Approved និងបើកដំណើរការ (is_active = 1)
         $stores = Store::where('status', 'approved')
             ->where('is_active', 1)
             ->latest()
@@ -84,8 +77,7 @@ class HomePageController extends Controller
 
    public function storeDetails($slug)
     {
-        // 🔍 ទាញយកទិន្នន័យហាង ព្រមទាំងផលិតផលណាដែលបាន "Published" ដោយ Admin
-        $store = \App\Models\Store::with(['products' => function($query) {
+        $store = Store::with(['products' => function($query) {
                 $query->where('status', 'Published'); // ✅ ប្រើប្រាស់ 'Published' តាម Table products ជាក់ស្តែង
             }])
             ->where('slug', $slug)
